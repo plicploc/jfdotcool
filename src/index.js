@@ -1,0 +1,11 @@
+import "./core/app.js";
+import "./vendors/gsap.js";
+import "./vendors/barba.js";
+import "./vendors/smooth.js";
+import "./systems/sys-anims.js";
+import "./features/slider.js";
+import "./pages/_registry.js";
+import "./pages/home.js";
+import "./pages/about.js";
+import "./pages/work.js";
+import "./pages/contact.js";

@@ -1,0 +1,18 @@
+{
+  "name": "jfdotcool",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "node esbuild.config.mjs --watch",
+    "build": "node esbuild.config.mjs --minify"
+  },
+  "keywords": [],
+  "author": "Jean-Francois Perrault",
+  "license": "ISC",
+  "description": "",
+  "type": "module",
+  "devDependencies": {
+    "esbuild": "^0.25.9"
+  }
+}
