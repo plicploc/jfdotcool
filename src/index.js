@@ -8,4 +8,5 @@ import "./pages/_registry.js";
 import "./pages/home.js";
 import "./pages/about.js";
 import "./pages/work.js";
+import "./pages/work-detail.js";
 import "./pages/contact.js";
