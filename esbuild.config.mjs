@@ -18,5 +18,5 @@ await build({
 });
 
 const latest = readFileSync(`dist/app.v${version}.js`, "utf8");
-wwiteFileSync("dist/app.latest.js", latest);
+writeFileSync("dist/app.latest.js", latest);
 console.log(`Built v${version}`);
