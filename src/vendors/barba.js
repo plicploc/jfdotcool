@@ -2,97 +2,145 @@
 window.JF = window.JF || {};
 window.JF.Barba = (() => {
   let enabled = false;
-  function enable() {
-    if (enabled || !window.barba) return;
-    enabled = true;
-    function updateCurrentLinks(nextUrl) {
-  document.querySelectorAll(".menu-item").forEach(link => {
-    link.classList.remove("w--current");
-    if (link.getAttribute("href") === nextUrl.pathname) {
-      link.classList.add("w--current");
-    }
-  });
-}
 
-    barba.init({
-      preventRunning: true,
-      timeout: 7000,
-      transitions: [{
-        name: "fade",
-        async leave({ current }) { return window.JF.Transitions?.leaveFade?.(current); },
-        async enter({ next }) {
-  // transition visuelle IN
-  await window.JF.Transitions?.enterFade?.(next);
-
-  // monter le module de page
-  await window.JF.Pages?.mount?.(next.container?.dataset.page || next.url.path);
-
-  // maj du lien actif (robuste si next.url manque)
-  (function updateCurrentLinks(u) {
-    const url = new URL(u || window.location.href);
-    const path = url.pathname.replace(/\/+$/, "") || "/";
-    document.querySelectorAll(".menu-item").forEach(link => {
+  // ——— Helpers ———
+  function updateCurrentLinksByLocation() {
+    const path = (window.location.pathname || "/").replace(/\/+$/, "") || "/";
+    document.querySelectorAll(".menu-item").forEach((link) => {
       const href = (link.getAttribute("href") || "").replace(/\/+$/, "") || "/";
       link.classList.toggle("w--current", href === path);
     });
-  })(next?.url?.href);
-
-  // systèmes globaux
-  window.JF.SystemAnims?.refresh?.();
-
-  // IMPORTANT : (re)monter Smooth pour le nouveau container
-  if (typeof window.JF.Smooth?.mountPage === "function") {
-    window.JF.Smooth.mountPage();
-  } else {
-    // fallback si tu n’as que refresh()
-    window.JF.Smooth?.refresh?.();
   }
 
-  // reset scroll en haut
-  window.JF.Smooth?.scrollTo?.(0, { duration: 0 });
-
-  // Re‑init Webflow (ordre sûr)
-  if (window.Webflow) {
+  function reinitWebflowModules() {
+    if (!window.Webflow) return;
     try {
-      // purge les bindings de l’ancienne page
+      // purge anciens bindings et rebinde le core
       window.Webflow.destroy?.();
-      // rebinde les modules core
       window.Webflow.ready?.();
 
-      // modules spécifiques
-      const ix2 = window.Webflow.require?.("ix2");
-      ix2?.init?.();
-      window.Webflow.require?.("lightbox")?.ready?.();
-      window.Webflow.require?.("video")?.ready?.();
-      window.Webflow.require?.("forms")?.ready?.();
+      // retard de 2 frames pour garantir que le container Barba est injecté
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          const ix2 = window.Webflow.require?.("ix2");
+          ix2?.init?.();
+          window.Webflow.require?.("lightbox")?.ready?.();
+          window.Webflow.require?.("video")?.ready?.();
+          window.Webflow.require?.("forms")?.ready?.();
+        });
+      });
     } catch (err) {
       console.warn("[Barba] Webflow re-init error:", err);
     }
   }
-}
-      }]
+
+  function afterDomMountedEffects() {
+    // (re)monte Smooth si dispo, sinon refresh
+    if (typeof window.JF?.Smooth?.mountPage === "function") {
+      window.JF.Smooth.mountPage();
+    } else {
+      window.JF?.Smooth?.refresh?.();
+    }
+
+    // laisse le DOM respirer, puis reset scroll + refresh ScrollTrigger
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        window.JF?.Smooth?.scrollTo?.(0, { duration: 0 });
+        if (window.ScrollTrigger?.refresh) ScrollTrigger.refresh(true);
+      });
     });
-    
+
+    // ré‑init Webflow (IX2, lightbox, video, forms)
+    reinitWebflowModules();
+
+    // systèmes anims globaux
+    window.JF?.SystemAnims?.refresh?.();
+
+    // liens actifs
+    updateCurrentLinksByLocation();
   }
+
+  // ——— Enable ———
+  function enable() {
+    if (enabled || !window.barba) return;
+    enabled = true;
+
+    barba.init({
+      preventRunning: true,
+      timeout: 7000,
+
+      transitions: [
+        {
+          name: "fade",
+
+          // 1) Sortie
+          async leave({ current }) {
+            return window.JF.Transitions?.leaveFade?.(current);
+          },
+
+          // 2) Premier chargement (hard refresh / arrivée directe)
+          async once({ next }) {
+            // force visibilité = 0 pour garantir un vrai fade in
+            if (next?.container && window.gsap) gsap.set(next.container, { autoAlpha: 0 });
+
+            // monte la page
+            await window.JF.Pages?.mount?.(
+              next.container?.dataset.page || next.url?.path || window.location.pathname
+            );
+
+            // fade in
+            await window.JF.Transitions?.enterFade?.(next);
+
+            // post‑mount (smooth, webflow, current, etc.)
+            afterDomMountedEffects();
+          },
+
+          // 3) Entrée après navigation
+          async enter({ next }) {
+            // force visibilité = 0 pour garantir un vrai fade in
+            if (next?.container && window.gsap) gsap.set(next.container, { autoAlpha: 0 });
+
+            // monte la page
+            await window.JF.Pages?.mount?.(
+              next.container?.dataset.page || next.url?.path || window.location.pathname
+            );
+
+            // fade in
+            await window.JF.Transitions?.enterFade?.(next);
+
+            // post‑mount (smooth, webflow, current, etc.)
+            afterDomMountedEffects();
+          },
+        },
+      ],
+    });
+  }
+
   return { enable };
 })();
 
-// Transitions par défaut
+// ——— Transitions par défaut ———
 window.JF = window.JF || {};
 window.JF.Transitions = (() => {
   function leaveFade(current) {
     return new Promise((res) => {
-      const el = current.container;
+      const el = current?.container;
       if (!el || !window.gsap) return res();
-      gsap.to(el, { autoAlpha: 0, duration: 0.25, onComplete: res });
+      gsap.to(el, { autoAlpha: 0, duration: 0.25, ease: "power1.out", onComplete: res });
     });
   }
+
   function enterFade(next) {
     return new Promise((res) => {
-      const el = next.container;
+      const el = next?.container;
       if (!el || !window.gsap) return res();
-      gsap.fromTo(el, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.25, onComplete: res });
+      gsap.fromTo(
+        el,
+        { autoAlpha: 0 },
+        { autoAlpha: 1, duration: 0.25, ease: "power1.out", onComplete: res }
+      );
     });
   }
+
   return { leaveFade, enterFade };
 })();
