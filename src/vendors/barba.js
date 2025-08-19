@@ -69,50 +69,52 @@ window.JF.Barba = (() => {
       preventRunning: true,
       timeout: 7000,
 
-      transitions: [
-        {
-          name: "fade",
+transitions: [
+  {
+    name: "fade",
 
-          // 1) Sortie
-          async leave({ current }) {
-            return window.JF.Transitions?.leaveFade?.(current);
-          },
+    async leave({ current }) {
+      console.log("[Barba] LEAVE →", current?.container?.dataset?.page);
+      return window.JF.Transitions?.leaveFade?.(current);
+    },
 
-          // 2) Premier chargement (hard refresh / arrivée directe)
-          async once({ next }) {
-            // force visibilité = 0 pour garantir un vrai fade in
-            if (next?.container && window.gsap) gsap.set(next.container, { autoAlpha: 0 });
+    async once({ next }) {
+      console.log("[Barba] ONCE (first load) →", next?.container?.dataset?.page);
+      await window.JF.Pages?.mount?.(next.container?.dataset.page || next.url?.path || window.location.pathname);
+      await window.JF.Transitions?.enterFade?.(next);
 
-            // monte la page
-            await window.JF.Pages?.mount?.(
-              next.container?.dataset.page || next.url?.path || window.location.pathname
-            );
+      // post-mount tests
+      console.log("[Barba] calling afterDomMountedEffects()");
+      afterDomMountedEffects();
+    },
 
-            // fade in
-            await window.JF.Transitions?.enterFade?.(next);
+    async enter({ next }) {
+      console.log("[Barba] ENTER →", next?.container?.dataset?.page);
 
-            // post‑mount (smooth, webflow, current, etc.)
-            afterDomMountedEffects();
-          },
+      await window.JF.Transitions?.enterFade?.(next);
+      await window.JF.Pages?.mount?.(next.container?.dataset.page || next.url?.path || window.location.pathname);
 
-          // 3) Entrée après navigation
-          async enter({ next }) {
-            // force visibilité = 0 pour garantir un vrai fade in
-            if (next?.container && window.gsap) gsap.set(next.container, { autoAlpha: 0 });
+      console.log("[Barba] updateCurrentLinksByLocation()");
+      updateCurrentLinksByLocation();
 
-            // monte la page
-            await window.JF.Pages?.mount?.(
-              next.container?.dataset.page || next.url?.path || window.location.pathname
-            );
+      console.log("[Barba] refresh SystemAnims");
+      window.JF.SystemAnims?.refresh?.();
 
-            // fade in
-            await window.JF.Transitions?.enterFade?.(next);
+      console.log("[Barba] Smooth.mountPage / refresh");
+      if (typeof window.JF.Smooth?.mountPage === "function") {
+        window.JF.Smooth.mountPage();
+      } else {
+        window.JF.Smooth?.refresh?.();
+      }
 
-            // post‑mount (smooth, webflow, current, etc.)
-            afterDomMountedEffects();
-          },
-        },
-      ],
+      console.log("[Barba] scrollTo(0)");
+      window.JF.Smooth?.scrollTo?.(0, { duration: 0 });
+
+      console.log("[Barba] reinit Webflow modules");
+      reinitWebflowModules();
+    }
+  }
+],
     });
   }
 
