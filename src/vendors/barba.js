@@ -16,9 +16,12 @@ window.JF.Barba = (() => {
           await window.JF.Pages?.mount?.(next.container?.dataset.page || next.url.path);
           window.JF.SystemAnims?.refresh?.();
           window.JF.Smooth?.refresh?.();
+          window.JF.Smooth?.scrollTo?.(0, { duration: 0 });
+
         }
       }]
     });
+    
   }
   return { enable };
 })();
