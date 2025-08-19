@@ -16,17 +16,6 @@ window.JF.Barba = (() => {
           await window.JF.Pages?.mount?.(next.container?.dataset.page || next.url.path);
           window.JF.SystemAnims?.refresh?.();
           window.JF.Smooth?.refresh?.();
-        },
-        beforeLeave({ current }) {
-          window.JF.Pages?.destroy?.(current.container?.dataset.page);
-          window.JF.Slider?.destroyAll?.();
-          window.JF.SystemAnims?.destroy?.();
-          window.JF.Smooth?.destroyPage?.();
-        },
-        afterEnter() {
-          window.JF.Slider?.mountAll?.();
-          window.JF.SystemAnims?.init?.();
-          window.JF.Smooth?.mountPage?.();
         }
       }]
     });

@@ -6,7 +6,7 @@ window.JF.Pages = (() => {
     ["about",   window.JF.PageAbout],
     ["work",    window.JF.PageWork],
     ["contact", window.JF.PageContact],
-      ["work-detail", window.JF.PageWorkDetail],
+    ["work-detail", window.JF.PageWorkDetail],
   ]);
   let currentKey = null;
   async function mount(key) {
