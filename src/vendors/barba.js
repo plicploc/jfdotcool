@@ -3,6 +3,22 @@ window.JF = window.JF || {};
 window.JF.Barba = (() => {
   let enabled = false;
 
+  // ====== DBG: canal hors-console ======
+  window.jfDebug = window.jfDebug || [];
+  window.JF.BUILD = window.JF.BUILD || {
+    name: "jf.cool",
+    file: "app.latest.js",
+    builtAt: new Date().toISOString()
+  };
+  function dbg(label, data) {
+    try {
+      const entry = { t: Date.now(), label, data };
+      window.jfDebug.push(entry);
+      window.dispatchEvent(new CustomEvent("JF:debug", { detail: entry }));
+    } catch (_) {}
+  }
+  // =====================================
+
   // ——— Helpers ———
   function updateCurrentLinksByLocation() {
     const path = (window.location.pathname || "/").replace(/\/+$/, "") || "/";
@@ -10,16 +26,14 @@ window.JF.Barba = (() => {
       const href = (link.getAttribute("href") || "").replace(/\/+$/, "") || "/";
       link.classList.toggle("w--current", href === path);
     });
+    dbg("nav.updateCurrent", { path });
   }
 
   function reinitWebflowModules() {
     if (!window.Webflow) return;
     try {
-      // purge anciens bindings et rebinde le core
       window.Webflow.destroy?.();
       window.Webflow.ready?.();
-
-      // retard de 2 frames pour garantir que le container Barba est injecté
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           const ix2 = window.Webflow.require?.("ix2");
@@ -27,95 +41,94 @@ window.JF.Barba = (() => {
           window.Webflow.require?.("lightbox")?.ready?.();
           window.Webflow.require?.("video")?.ready?.();
           window.Webflow.require?.("forms")?.ready?.();
+          dbg("webflow.reinit.done", {});
         });
       });
     } catch (err) {
-      console.warn("[Barba] Webflow re-init error:", err);
+      dbg("webflow.reinit.error", { err: String(err) });
     }
   }
 
   function afterDomMountedEffects() {
-    // (re)monte Smooth si dispo, sinon refresh
+    // Smooth
     if (typeof window.JF?.Smooth?.mountPage === "function") {
       window.JF.Smooth.mountPage();
+      dbg("smooth.mountPage", {});
     } else {
       window.JF?.Smooth?.refresh?.();
+      dbg("smooth.refresh", {});
     }
 
-    // laisse le DOM respirer, puis reset scroll + refresh ScrollTrigger
+    // Double rAF → scrollTo + refresh ST
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         window.JF?.Smooth?.scrollTo?.(0, { duration: 0 });
         if (window.ScrollTrigger?.refresh) ScrollTrigger.refresh(true);
+        dbg("smooth.scrollToTop+st.refresh", {});
       });
     });
 
-    // ré‑init Webflow (IX2, lightbox, video, forms)
+    // Webflow + System + Nav
     reinitWebflowModules();
-
-    // systèmes anims globaux
     window.JF?.SystemAnims?.refresh?.();
-
-    // liens actifs
+    dbg("systemAnims.refresh", {});
     updateCurrentLinksByLocation();
   }
 
-  // ——— Enable ———
   function enable() {
     if (enabled || !window.barba) return;
     enabled = true;
 
+    // Ping immédiat pour vérifier chargement du bundle
+    dbg("bundle.loaded", window.JF.BUILD);
+
     barba.init({
       preventRunning: true,
       timeout: 7000,
+      transitions: [
+        {
+          name: "fade",
 
-transitions: [
-  {
-    name: "fade",
+          async leave({ current }) {
+            dbg("barba.leave", { page: current?.container?.dataset?.page });
+            return window.JF.Transitions?.leaveFade?.(current);
+          },
 
-    async leave({ current }) {
-      console.log("[Barba] LEAVE →", current?.container?.dataset?.page);
-      return window.JF.Transitions?.leaveFade?.(current);
-    },
+          async once({ next }) {
+            dbg("barba.once", { page: next?.container?.dataset?.page });
 
-    async once({ next }) {
-      console.log("[Barba] ONCE (first load) →", next?.container?.dataset?.page);
-      await window.JF.Pages?.mount?.(next.container?.dataset.page || next.url?.path || window.location.pathname);
-      await window.JF.Transitions?.enterFade?.(next);
+            if (next?.container && window.gsap) gsap.set(next.container, { autoAlpha: 0 });
+            await window.JF.Pages?.mount?.(
+              next.container?.dataset.page || next.url?.path || window.location.pathname
+            );
+            dbg("pages.mount", { page: next?.container?.dataset?.page });
 
-      // post-mount tests
-      console.log("[Barba] calling afterDomMountedEffects()");
-      afterDomMountedEffects();
-    },
+            await window.JF.Transitions?.enterFade?.(next);
+            dbg("trans.enterFade", {});
 
-    async enter({ next }) {
-      console.log("[Barba] ENTER →", next?.container?.dataset?.page);
+            afterDomMountedEffects();
+          },
 
-      await window.JF.Transitions?.enterFade?.(next);
-      await window.JF.Pages?.mount?.(next.container?.dataset.page || next.url?.path || window.location.pathname);
+          async enter({ next }) {
+            dbg("barba.enter", { page: next?.container?.dataset?.page });
 
-      console.log("[Barba] updateCurrentLinksByLocation()");
-      updateCurrentLinksByLocation();
+            if (next?.container && window.gsap) gsap.set(next.container, { autoAlpha: 0 });
+            await window.JF.Pages?.mount?.(
+              next.container?.dataset.page || next.url?.path || window.location.pathname
+            );
+            dbg("pages.mount", { page: next?.container?.dataset?.page });
 
-      console.log("[Barba] refresh SystemAnims");
-      window.JF.SystemAnims?.refresh?.();
+            await window.JF.Transitions?.enterFade?.(next);
+            dbg("trans.enterFade", {});
 
-      console.log("[Barba] Smooth.mountPage / refresh");
-      if (typeof window.JF.Smooth?.mountPage === "function") {
-        window.JF.Smooth.mountPage();
-      } else {
-        window.JF.Smooth?.refresh?.();
-      }
-
-      console.log("[Barba] scrollTo(0)");
-      window.JF.Smooth?.scrollTo?.(0, { duration: 0 });
-
-      console.log("[Barba] reinit Webflow modules");
-      reinitWebflowModules();
-    }
-  }
-],
+            afterDomMountedEffects();
+          }
+        }
+      ]
     });
+
+    // Confirme l’enable
+    dbg("barba.enabled", {});
   }
 
   return { enable };
