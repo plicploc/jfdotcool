@@ -1,30 +1,18 @@
 // /src/vendors/barba.js
-// JF.Barba : helpers & hooks centrés autour de Barba.js
-// - Ne fait PAS barba.init() ici (laisse ça à ton bootstrap système)
-// - Met à jour les liens "current" y compris pour les routes enfant CMS (/work/*)
-// - Safe si Barba n'est pas chargé (fonctionne aussi en mode "no-Barba")
+// Gère les liens .w--current et aria-current="page" avec support des pages CMS enfants (/work/slug)
+// Safe, extensible, anti-freeze, sans dépendre d’un appel à barba.init()
 
 window.JF = window.JF || {};
 window.JF.Barba = (() => {
   let enabled = false;
 
-  // --------- (optionnel) logger interne ---------
-  function dbg(...args) {
-    if (window.__JF_DEBUG__) {
-      // eslint-disable-next-line no-console
-      console.log('[JF.Barba]', ...args);
-    }
-  }
-
-  // --------- Helpers URL ---------
+  // --- Helpers URL ---
   function normalizePath(p) {
     if (!p) return '/';
     try {
       const clean = p.replace(/\/{2,}/g, '/');
       return (clean.length > 1) ? clean.replace(/\/+$/, '') : '/';
-    } catch {
-      return '/';
-    }
+    } catch { return '/'; }
   }
 
   function hrefPath(link) {
@@ -39,79 +27,118 @@ window.JF.Barba = (() => {
     return normalizePath(raw);
   }
 
-  /**
-   * Règles de parentage pour activer un lien parent quand on est sur une page enfant CMS.
-   * Étends ce tableau si tu veux d'autres sections (blog, cases, etc.).
-   */
+  // --- Parent CMS rules (extensible)
   const PARENT_RULES = [
     { parent: '/work', match: (path) => path === '/work' || path.startsWith('/work/') },
-    // Exemple :
-    // { parent: '/blog',  match: (path) => path === '/blog'  || path.startsWith('/blog/')  },
-    // { parent: '/cases', match: (path) => path === '/cases' || path.startsWith('/cases/') },
+    // { parent: '/blog', match: (path) => path === '/blog' || path.startsWith('/blog/') },
   ];
 
   function isParentActive(href, path) {
-    for (const rule of PARENT_RULES) {
-      if (href === rule.parent && rule.match(path)) return true;
+    for (const r of PARENT_RULES) {
+      if (href === r.parent && r.match(path)) return true;
     }
     return false;
   }
 
-  /**
-   * Met à jour l'état "current" des liens de nav:
-   * - exact match   : href === path
-   * - parent actif  : ex. href="/work" quand path="/work/slug"
-   */
+  function selectNavRoot() {
+    return document.querySelector('.sidebar, .navbar, [data-nav], .sidebar-new') || document.body;
+  }
+
+  // --- Met à jour les liens w--current + aria-current
   function updateCurrentLinksByLocation() {
     const path = normalizePath(window.location.pathname || '/');
+    const navRoot = selectNavRoot();
 
-    // Couvre ta sidebar (.navbar-link) et l'ancien sélecteur (.menu-item) si encore présent
-    const links = document.querySelectorAll('.navbar-link, .menu-item');
+    // Nettoyage uniquement des ajouts dynamiques
+    navRoot.querySelectorAll('.navbar-link[data-added-current="true"], .menu-item[data-added-current="true"]').forEach((el) => {
+      el.classList.remove('w--current');
+      if (el.getAttribute('aria-current') === 'page') el.removeAttribute('aria-current');
+      el.removeAttribute('data-added-current');
+    });
 
+    const links = navRoot.querySelectorAll('.navbar-link[href], .menu-item[href]');
     links.forEach((link) => {
       const href = hrefPath(link);
       const isExact = (href === path);
       const isParent = isParentActive(href, path);
-      link.classList.toggle('w--current', isExact || isParent);
+
+      if (isExact) {
+        if (!link.classList.contains('w--current')) link.classList.add('w--current');
+        if (link.getAttribute('aria-current') !== 'page') link.setAttribute('aria-current', 'page');
+        return;
+      }
+
+      if (isParent) {
+        link.classList.add('w--current');
+        link.setAttribute('aria-current', 'page');
+        link.setAttribute('data-added-current', 'true');
+      }
+    });
+  }
+
+  // --- MutationObserver sécurisé
+  let _navObserver;
+  function ensureNavObserver() {
+    const root = selectNavRoot();
+    if (_navObserver) return;
+
+    _navObserver = new MutationObserver((muts) => {
+      const shouldUpdate = muts.some(m =>
+        (m.type === 'childList' && (m.addedNodes.length || m.removedNodes.length)) ||
+        (m.type === 'attributes' && (m.attributeName === 'class' || m.attributeName === 'href'))
+      );
+
+      if (shouldUpdate) {
+        _navObserver.disconnect(); // 🔐 évite le rebouclage
+        try {
+          updateCurrentLinksByLocation();
+        } finally {
+          _navObserver.observe(root, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['class', 'href']
+          });
+        }
+      }
     });
 
-    dbg('nav.updateCurrent', { path, count: links.length });
+    _navObserver.observe(root, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['class', 'href']
+    });
   }
 
-  // Expose publiquement si besoin (pour forcer la MAJ depuis ailleurs)
-  function refresh() {
-    updateCurrentLinksByLocation();
-  }
-
-  // --------- Init hooks Barba (si présent) + DOM Ready fallback ---------
-  function init() {
+  // --- Boot complet
+  function bootBarbaNavCurrent() {
     if (enabled) return;
     enabled = true;
 
-    // 1) DOM prêt : première passe (marche même sans Barba)
     if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', updateCurrentLinksByLocation, { once: true });
+      document.addEventListener('DOMContentLoaded', () => {
+        updateCurrentLinksByLocation();
+        ensureNavObserver();
+      }, { once: true });
     } else {
       updateCurrentLinksByLocation();
+      ensureNavObserver();
     }
 
-    // 2) Hooks Barba (si dispo) : re-run après chaque navigation
-    if (window.barba && window.barba.hooks) {
-      // after() : le nouveau container est injecté → liens présents → on peut mettre à jour
+    if (window.barba?.hooks) {
       window.barba.hooks.after(() => {
         updateCurrentLinksByLocation();
       });
-      dbg('hooks.attached');
-    } else {
-      dbg('hooks.skipped (no Barba)');
     }
   }
 
-  // Auto-boot (idempotent)
-  init();
+  // Auto-init
+  bootBarbaNavCurrent();
 
+  // Public API si besoin
   return {
-    init,     // rejouable sans danger
-    refresh,  // public: forcer la MAJ "current" manuellement
+    refresh: updateCurrentLinksByLocation,
+    init: bootBarbaNavCurrent
   };
 })();
