@@ -1,6 +1,5 @@
 // /src/features/index.js
 // Boot des features globales (navigation, slider…)
-// - navigation.js : IIFE auto-init (DOM Ready + Barba)
 // - slider.js : JF.Slider.mountAll() / destroyAll()
 
 import './navigation.js'; // side-effect: s’installe tout seul
@@ -32,16 +31,6 @@ onReady(() => {
   runSliders();
 });
 
-// ---- Hooks Barba ----
-if (window.barba?.hooks) {
-  window.barba.hooks.before(() => {
-    destroySliders();
-  });
-  window.barba.hooks.after(() => {
-    runSliders();
-    // navigation.js a déjà son propre hook après transition
-  });
-}
 
 // Debug global si besoin
 window.__jfFeatures = { runSliders, destroySliders };

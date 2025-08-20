@@ -1,7 +1,6 @@
 // navigation.js — parent "current" hack pour templates CMS (Webflow)
 // - Ajoute .w--current sur le lien parent "Work" quand on est sur /work/slug
 // - Idempotent (on retire uniquement ce qu'on a ajouté nous-mêmes)
-// - Compatible Barba (re-run après navigation)
 
 (function () {
   const MENU_LINKS_SELECTOR = '.navbar-link';
@@ -71,13 +70,6 @@
   // Run au chargement
   document.addEventListener('DOMContentLoaded', applyParentCurrent);
 
-  // Re-run après navigation Barba si présent
-  if (window.barba && window.barba.hooks) {
-    // after/enter suffisent selon ta config, on met after pour être sûr que le DOM est prêt
-    window.barba.hooks.after(() => {
-      applyParentCurrent();
-    });
-  }
 
   // Petit filet de sécurité si du contenu nav est ré-injecté dynamiquement
   const nav = document.querySelector('.sidebar, .navbar, [data-nav], .sidebar-new') || document.body;

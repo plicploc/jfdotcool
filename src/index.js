@@ -1,6 +1,5 @@
 import "./core/app.js";
 import "./vendors/gsap.js";
-import "./vendors/barba.js";
 import "./vendors/smooth.js";
 import "./systems/sys-anims.js";
 import "./features/slider.js";

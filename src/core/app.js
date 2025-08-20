@@ -1,3 +1,4 @@
+import { initTransitions } from "../features/transitions.js";
 (function () {
   const JF = (window.JF = window.JF || {});
   JF.version = "1.0.0";
@@ -38,4 +39,8 @@
 
   const ready = () => JF.boot();
   (document.readyState !== "loading") ? ready() : document.addEventListener("DOMContentLoaded", ready);
+
+
+  // Transitions de navigation (CDVT + GSAP fallback), full-load
++  initTransitions();
 })();
