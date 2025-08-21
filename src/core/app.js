@@ -34,7 +34,6 @@ import { initTransitions } from "../features/transitions.js";
     JF.Slider?.mountAll?.();
     const pageKey = document.body.getAttribute("data-page") || location.pathname;
     await JF.Pages?.mount?.(pageKey);
-    JF.Barba?.enable?.();
   };
 
   const ready = () => JF.boot();

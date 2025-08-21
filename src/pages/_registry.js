@@ -21,11 +21,14 @@ window.JF.Pages = (() => {
     mod?.destroy?.();
     currentKey = null;
   }
-  function normalize(k) {
-    if (!k) return "home";
-    if (k.container && k.container.dataset?.page) return k.container.dataset.page; // Barba
-    if (typeof k === "string" && k.startsWith("/")) k = k.replace(/\//g, "") || "home";
-    return k;
+function normalize(k) {
+  if (!k) return "home";
+  if (typeof k === "string") {
+    return k.startsWith("/") ? (k.replace(/\//g, "") || "home") : k;
   }
+  const attr = document.body.getAttribute("data-page");
+  return attr || "home";
+}
+
   return { mount, destroy };
 })();
