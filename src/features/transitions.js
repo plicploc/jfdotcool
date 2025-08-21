@@ -14,7 +14,7 @@ function holdSidebarHover(linkEl) {
   if (sidebar) sidebar.classList.add("is-transitioning");
 }
 
-function playOutAndGo(overlay, href, duration = 1) {
+function playOutAndGo(overlay, href, duration = 0.3) {
   // rendre visible sans transition puis 0→1
   overlay.style.visibility = "visible";
   overlay.style.transition = "none";

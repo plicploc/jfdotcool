@@ -1,45 +1,78 @@
+// /src/core/app.js
+// - Marque "Work" actif sur /work et /work/*.
+
 import { initTransitions } from "../features/transitions.js";
+
 (function () {
+  // Namespace global
   const JF = (window.JF = window.JF || {});
-  JF.version = "1.0.0";
+  JF.version = JF.version || "1.0.0";
 
-  const isClient = typeof window !== "undefined" && typeof document !== "undefined";
-  if (!isClient) return;
+  // --------- Environnement (safe) ----------
+  // Évite "Env is not defined". On expose JF.Env.EDITOR en se basant sur Webflow si dispo.
+  if (!JF.Env) {
+    try {
+      const isEditor =
+        !!(window.Webflow && typeof window.Webflow.env === "function" && window.Webflow.env("editor"));
+      JF.Env = { EDITOR: isEditor };
+    } catch (e) {
+      JF.Env = { EDITOR: false };
+    }
+  }
 
-  const Env = (JF.Env = (() => {
-    const search = new URLSearchParams(location.search);
-    const DEBUG = search.get("debug") === "1";
-    const EDITOR = !!(window.Webflow && window.Webflow.env && window.Webflow.env("editor"));
-    const PROD = !DEBUG && location.hostname.indexOf("webflow.io") === -1;
-    return { DEBUG, EDITOR, PROD };
-  })());
+  // --------- Util: marquer le lien actif dans la nav ----------
+  // Force "Work" actif sur /work ET /work/<slug>
+  function markNavCurrentByPath() {
+    const path = window.location.pathname;
+    const links = Array.from(document.querySelectorAll("a.navbar-link"));
+    if (!links.length) return;
 
-  JF.$  = (sel, el = document) => el.querySelector(sel);
-  JF.$$ = (sel, el = document) => Array.from(el.querySelectorAll(sel));
-  JF.on = (el, ev, fn, opt) => el && el.addEventListener(ev, fn, opt);
+    // reset
+    links.forEach((a) => a.classList.remove("w--current"));
 
-  JF.bus = (() => {
-    const m = new Map();
-    return {
-      on: (t, fn) => (m.has(t) ? m.get(t).push(fn) : m.set(t, [fn])),
-      emit: (t, p) => (m.get(t) || []).forEach(fn => fn(p)),
-      off: (t, fn) => m.set(t, (m.get(t) || []).filter(f => f !== fn)),
-    };
-  })();
+    const byHref = (href) => links.find((a) => (a.getAttribute("href") || "") === href);
 
+    if (path === "/" || path === "/home") {
+      byHref("/")?.classList.add("w--current");
+    } else if (path === "/about") {
+      byHref("/about")?.classList.add("w--current");
+    } else if (path === "/contact") {
+      byHref("/contact")?.classList.add("w--current");
+    } else if (path === "/work" || path.startsWith("/work/")) {
+      // ✅ Work actif aussi sur les pages détail
+      byHref("/work")?.classList.add("w--current");
+    }
+  }
+
+  // --------- Boot ----------
   JF.boot = async () => {
+    // Vendors / systèmes (si présents)
     JF.GSAP?.registerPlugins?.();
     JF.SystemAnims?.init?.();
-    if (!Env.EDITOR) JF.Smooth?.mount?.();
+
+    // Smooth seulement hors éditeur
+    if (!JF.Env?.EDITOR) JF.Smooth?.mount?.();
+
+    // Features
     JF.Slider?.mountAll?.();
-    const pageKey = document.body.getAttribute("data-page") || location.pathname;
+
+    // Pages
+    // On laisse la page décider via data-page, sinon on passe le pathname (normalisé côté _registry)
+    const pageKey = document.body.getAttribute("data-page") || window.location.pathname;
     await JF.Pages?.mount?.(pageKey);
+
+    // Nav active
+    markNavCurrentByPath();
   };
 
-  const ready = () => JF.boot();
-  (document.readyState !== "loading") ? ready() : document.addEventListener("DOMContentLoaded", ready);
+  // Ready
+  const start = () => JF.boot();
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", start, { once: true });
+  } else {
+    start();
+  }
 
-
-  // Transitions de navigation (CDVT + GSAP fallback), full-load
-+  initTransitions();
+  // Transitions overlay (IN est géré par le bootstrap inline, ici on branche l'OUT)
+  initTransitions();
 })();
