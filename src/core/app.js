@@ -1,78 +1,92 @@
-// /src/core/app.js
-// - Marque "Work" actif sur /work et /work/*.
+// src/core/app.js
+// Boot global (sans Barba) + Lottie logo scroll-sync dans la sidebar.
 
 import { initTransitions } from "../features/transitions.js";
+import { initLottieLogo } from "../features/lottie/index.js";
 
 (function () {
   // Namespace global
   const JF = (window.JF = window.JF || {});
   JF.version = JF.version || "1.0.0";
 
-  // --------- Environnement (safe) ----------
-  // Évite "Env is not defined". On expose JF.Env.EDITOR en se basant sur Webflow si dispo.
-  if (!JF.Env) {
-    try {
-      const isEditor =
-        !!(window.Webflow && typeof window.Webflow.env === "function" && window.Webflow.env("editor"));
-      JF.Env = { EDITOR: isEditor };
-    } catch (e) {
-      JF.Env = { EDITOR: false };
+  // ───────────────────────────────────────────────────────────────────────────
+  // Smooth: tente de monter, puis réessaie un peu si le DOM n'était pas prêt
+  function tryMountSmooth(retries = 6, delay = 120) {
+    if (JF.Smooth?.isActive?.()) return;          // déjà actif
+    JF.Smooth?.mount?.();                         // 1ère tentative
+    if (JF.Smooth?.isActive?.()) {
+      JF.Smooth?.mountPage?.();                   // petit refresh
+      return;
+    }
+    if (retries > 0) {
+      setTimeout(() => tryMountSmooth(retries - 1, delay), delay);
+    } else {
+      console.warn("[Smooth] mount retry épuisé");
     }
   }
+  // ───────────────────────────────────────────────────────────────────────────
 
-  // --------- Util: marquer le lien actif dans la nav ----------
-  // Force "Work" actif sur /work ET /work/<slug>
-  function markNavCurrentByPath() {
-    const path = window.location.pathname;
-    const links = Array.from(document.querySelectorAll("a.navbar-link"));
-    if (!links.length) return;
-
-    // reset
-    links.forEach((a) => a.classList.remove("w--current"));
-
-    const byHref = (href) => links.find((a) => (a.getAttribute("href") || "") === href);
-
-    if (path === "/" || path === "/home") {
-      byHref("/")?.classList.add("w--current");
-    } else if (path === "/about") {
-      byHref("/about")?.classList.add("w--current");
-    } else if (path === "/contact") {
-      byHref("/contact")?.classList.add("w--current");
-    } else if (path === "/work" || path.startsWith("/work/")) {
-      // ✅ Work actif aussi sur les pages détail
-      byHref("/work")?.classList.add("w--current");
-    }
-  }
-
-  // --------- Boot ----------
   JF.boot = async () => {
     // Vendors / systèmes (si présents)
     JF.GSAP?.registerPlugins?.();
     JF.SystemAnims?.init?.();
 
-    // Smooth seulement hors éditeur
-    if (!JF.Env?.EDITOR) JF.Smooth?.mount?.();
+    const onReady = () => {
+      // Smooth seulement hors éditeur
+      if (!JF.Env?.EDITOR) {
+        console.log("[Smooth] mount (with retry)");
+        tryMountSmooth();                         // ← au lieu d'un seul mount direct
+      }
 
-    // Features
-    JF.Slider?.mountAll?.();
+      // Transitions overlay / hooks
+      initTransitions?.();
 
-    // Pages
-    // On laisse la page décider via data-page, sinon on passe le pathname (normalisé côté _registry)
-    const pageKey = document.body.getAttribute("data-page") || window.location.pathname;
-    await JF.Pages?.mount?.(pageKey);
+      // ── Lottie Logo (sidebar) ────────────────────────────────────────────────
+      try {
+        if (JF._destroyLottieLogo) {
+          JF._destroyLottieLogo();
+        }
+        JF._destroyLottieLogo = initLottieLogo({
+          selector: ".new-sidebar .navbar-main .logo-horizontal",
+          path: "/animation/logo/jfdotcool-wiggle-website.json",
+          pixelsPerLoop: 1000,
+          loopMultiplier: 0.5,
+        });
+      } catch (e) {
+        console.warn("[lottieLogo] init failed", e);
+      }
 
-    // Nav active
-    markNavCurrentByPath();
+      // Autres features éventuelles
+      JF.Slider?.mountAll?.();
+
+      // Filet de sécurité: si des éléments arrivent plus tard (images/IX2),
+      // on retente 2 fois après l'évènement load.
+      window.addEventListener("load", () => tryMountSmooth(2, 150), { once: true });
+    };
+
+    // Lance onReady tout de suite si le DOM est déjà prêt
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", onReady, { once: true });
+    } else {
+      onReady();
+    }
   };
 
-  // Ready
+  // Boot de l’app
   const start = () => JF.boot();
+
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", start, { once: true });
   } else {
     start();
   }
 
-  // Transitions overlay (IN est géré par le bootstrap inline, ici on branche l'OUT)
-  initTransitions();
+  // Cleanup sur navigation complète (pas de SPA)
+  window.addEventListener(
+    "pagehide",
+    () => {
+      JF._destroyLottieLogo?.();
+    },
+    { once: true }
+  );
 })();

@@ -24,3 +24,20 @@ window.JF.PageWorkDetail = (() => {
 
   return { init, destroy };
 })();
+
+// ──────────────────────────────────────────────────────────────
+// Bootstrap sans Barba : auto-init si on arrive directement sur
+// la page (ou si une structure slider est présente).
+// ──────────────────────────────────────────────────────────────
+(function bootstrapWorkDetail() {
+  const shouldInit =
+    document.body?.getAttribute("data-page") === "work-detail" ||
+    document.querySelector(".superslide-collectionlist-wrapper");
+  if (!shouldInit) return;
+  const start = () => window.JF.PageWorkDetail.init();
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", start, { once: true });
+  } else {
+    start();
+  }
+})();

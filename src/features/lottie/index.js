@@ -1,0 +1,1 @@
+export { initLottieLogo } from './scrollLogo.js';

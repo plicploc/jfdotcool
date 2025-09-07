@@ -1,6 +1,6 @@
 {
   "name": "jfdotcool",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
@@ -14,5 +14,8 @@
   "type": "module",
   "devDependencies": {
     "esbuild": "^0.25.9"
+  },
+  "dependencies": {
+    "lottie-web": "^5.13.0"
   }
 }

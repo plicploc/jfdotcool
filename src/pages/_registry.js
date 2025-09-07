@@ -42,6 +42,5 @@ function normalize(k) {
 }
 
 
-
   return { mount, destroy };
 })();

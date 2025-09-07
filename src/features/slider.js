@@ -1,35 +1,38 @@
 // /src/features/slider.js
-// Intègre la version "works.js" (loop infini + parallaxe cosinus + drag + boutons)
+// Version sans manipulation de .mask-diapo (parallaxe retirée)
+// Conserve : loop infini, drag, snap, boutons + snap après resize
 
 window.JF = window.JF || {};
 window.JF.Slider = (() => {
   const instances = new Set();
 
- function mountAll() {
-  const page = document.body.getAttribute("data-page");
+  function mountAll() {
+    const page = document.body.getAttribute("data-page");
 
-  // 1) Si on trouve la structure slider, on monte (prioritaire)
-  const wrappers = document.querySelectorAll(".superslide-collectionlist-wrapper");
+    // 1) Si on trouve la structure slider, on monte (prioritaire)
+    const wrappers = document.querySelectorAll(".superslide-collectionlist-wrapper");
 
-  // 2) Sinon, on limite aux pages connues
-  const allowByPage = page === "work" || page === "work-detail";
+    // 2) Sinon, on limite aux pages connues
+    const allowByPage = page === "work" || page === "work-detail";
 
-  if (!wrappers.length && !allowByPage) return;
+    if (!wrappers.length && !allowByPage) return;
 
-  wrappers.forEach((wrapper) => {
-    if (wrapper._sliderMounted) return;
-    const api = mountOne(wrapper);
-    if (api) {
-      wrapper._sliderMounted = true;
-      instances.add(api);
-    }
-  });
-}
+    wrappers.forEach((wrapper) => {
+      if (wrapper._sliderMounted) return;
+      const api = mountOne(wrapper);
+      if (api) {
+        wrapper._sliderMounted = true;
+        instances.add(api);
+      }
+    });
+  }
 
   function destroyAll() {
     instances.forEach((api) => api.destroy());
     instances.clear();
-    document.querySelectorAll(".superslide-collectionlist-wrapper").forEach(w => (w._sliderMounted = false));
+    document
+      .querySelectorAll(".superslide-collectionlist-wrapper")
+      .forEach((w) => (w._sliderMounted = false));
   }
 
   function mountOne(wrapper) {
@@ -52,9 +55,6 @@ window.JF.Slider = (() => {
     list.append(...clonesAfter);
     slides = Array.from(list.querySelectorAll(".superslide")); // re-scan
 
-    const paraEls = slides.map((s) => s.querySelector("img.mask-diapo"));
-    const para    = { spreads: [] };
-
     const state = {
       index: ORIGINAL_COUNT, // démarrer au milieu (série centrale)
       centers: [],
@@ -66,14 +66,8 @@ window.JF.Slider = (() => {
     const getVW = () => wrapper.clientWidth;
 
     function measure() {
+      // centres de toutes les slides (pour le snap)
       state.centers = slides.map((s) => s.offsetLeft + s.offsetWidth / 2);
-
-      // spread (innerW - slideW) par slide pour la parallaxe (si image présente)
-      para.spreads = slides.map((s, i) => {
-        const el = paraEls[i];
-        if (!el) return 0;
-        return Math.max(0, el.offsetWidth - s.offsetWidth);
-      });
 
       // métriques pour la boucle infinie
       const firstCentral = slides[ORIGINAL_COUNT];
@@ -91,38 +85,14 @@ window.JF.Slider = (() => {
       return Math.round(getVW() / 2 - sCenter);
     }
 
-    function updateParallaxPositions() {
-      const vw = getVW();
-      const viewCenter = -gsap.getProperty(track, "x") + vw / 2;
-
-      for (let i = 0; i < slides.length; i++) {
-        const el = paraEls[i];
-        if (!el) continue;
-
-        const slide = slides[i];
-        const slideCenter = slide.offsetLeft + slide.offsetWidth / 2;
-
-        // p ∈ [-1, 1] : -1 gauche, 0 centre, +1 droite
-        let p = (slideCenter - viewCenter) / (vw / 2);
-        if (p < -1) p = -1;
-        else if (p > 1) p = 1;
-
-        const spread = para.spreads[i] || 0;
-        const x = spread * Math.cos(Math.PI * p);
-
-        gsap.set(el, { x: Math.round(x) });
-      }
-    }
-
     function normalizeIntoMiddle() {
+      // repositionne l'index dans la série centrale
       if (state.index < ORIGINAL_COUNT) {
         state.index += ORIGINAL_COUNT;
         gsap.set(track, { x: xForIndex(state.index) });
-        updateParallaxPositions();
       } else if (state.index >= ORIGINAL_COUNT * 2) {
         state.index -= ORIGINAL_COUNT;
         gsap.set(track, { x: xForIndex(state.index) });
-        updateParallaxPositions();
       }
     }
 
@@ -133,7 +103,6 @@ window.JF.Slider = (() => {
         duration: 0.6,
         ease: "power2.inOut",
         overwrite: true,
-        onUpdate: updateParallaxPositions,
         ...vars,
         onComplete: () => normalizeIntoMiddle()
       });
@@ -160,18 +129,14 @@ window.JF.Slider = (() => {
 
       if (viewCenter < leftThreshold) {
         gsap.set(track, { x: x + state.period });
-        updateParallaxPositions();
       } else if (viewCenter > rightThreshold) {
         gsap.set(track, { x: x - state.period });
-        updateParallaxPositions();
       }
     }
 
     function initPosition() {
       measure();
       gsap.set(track, { x: xForIndex(state.index) });
-      updateParallaxPositions();
-      requestAnimationFrame(updateParallaxPositions);
     }
 
     // ————————— Context GSAP + initialisation après chargement images
@@ -180,8 +145,15 @@ window.JF.Slider = (() => {
       let left = imgs.length;
       if (left) {
         imgs.forEach((img) => {
-          if (img.complete) { if (--left === 0) initPosition(); }
-          else img.addEventListener("load", () => { if (--left === 0) initPosition(); }, { once: true });
+          if (img.complete) {
+            if (--left === 0) initPosition();
+          } else {
+            img.addEventListener(
+              "load",
+              () => { if (--left === 0) initPosition(); },
+              { once: true }
+            );
+          }
         });
         setTimeout(() => { if (left > 0) initPosition(); }, 700); // fallback sécurité
       } else {
@@ -195,14 +167,11 @@ window.JF.Slider = (() => {
           inertia: true,
           onPressInit() {
             measure();
-            updateParallaxPositions();
           },
           onDrag() {
-            updateParallaxPositions();
             loopIfNeeded();
           },
           onThrowUpdate() {
-            updateParallaxPositions();
             loopIfNeeded();
           },
           onDragEnd() {
@@ -228,11 +197,40 @@ window.JF.Slider = (() => {
           goToIndex(state.index - 1);
         });
       });
+
+      // ——— Snap après resize (debounce)
+      let resizeTimer;
+      const handleResize = () => {
+        // stoppe une éventuelle anim en cours pour éviter les artefacts
+        gsap.killTweensOf(track);
+        // re-mesure tout (slides/centres/période)
+        measure();
+        // réaligne la slide courante au centre géométrique
+        gsap.set(track, { x: xForIndex(state.index) });
+        // sécurité boucle infinie si viewport a beaucoup changé
+        loopIfNeeded();
+        // puis snap sur la plus proche (au cas où le layout ait bougé)
+        snapToClosest();
+      };
+
+      const onResize = () => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(handleResize, 180); // debounce
+      };
+
+      window.addEventListener("resize", onResize);
+
+      // garder la réf pour cleanup
+      wrapper.__onResize = onResize;
     }, wrapper);
 
     // API instance
     return {
       destroy() {
+        if (wrapper.__onResize) {
+          window.removeEventListener("resize", wrapper.__onResize);
+          wrapper.__onResize = null;
+        }
         ctx?.revert();
         wrapper._sliderMounted = false;
       }

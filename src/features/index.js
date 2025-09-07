@@ -1,36 +1,27 @@
 // /src/features/index.js
-// Boot des features globales (navigation, slider…)
-// - slider.js : JF.Slider.mountAll() / destroyAll()
+import "./navigation.js";
+import "./textEffects.js";
+import "./slider.js"; // 👈 remet le module slider dans le graphe
 
-import './navigation.js'; // side-effect: s’installe tout seul
-import './slider.js';     // side-effect: définit window.JF.Slider
+export { initTransitions } from "./transitions.js";
 
-function runSliders() {
-  if (window.JF?.Slider?.mountAll) {
-    window.JF.Slider.mountAll();
-  }
+// Helper titres (optionnel)
+export function initTextTiles(opts = {}) {
+  return window.JF?.TextFX?.pouetpouet?.(".txttile", {
+    duration: 0.3,
+    delay: .5,
+    stagger: 0.05,
+    y: "30%",
+    rotationX: -90,
+    rotationY: 45,
+    ease: "back.inOut(1.7)",
+    ...opts
+  });
 }
 
-function destroySliders() {
-  if (window.JF?.Slider?.destroyAll) {
-    window.JF.Slider.destroyAll();
-  }
+// ✅ Helper sliders (appel unique depuis app.js)
+export function initSliders() {
+  return window.JF?.Slider?.mountAll?.();
 }
 
-// helper DOM ready
-function onReady(fn) {
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', fn, { once: true });
-  } else {
-    fn();
-  }
-}
-
-// ---- Boot initial (au chargement) ----
-onReady(() => {
-  runSliders();
-});
-
-
-// Debug global si besoin
-window.__jfFeatures = { runSliders, destroySliders };
+export {}; // empêche l’élagage par le bundler
