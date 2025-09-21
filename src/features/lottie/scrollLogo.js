@@ -41,7 +41,7 @@ function resolveLottiePath(p) {
  * @param {Object} opts
  * @param {string} [opts.selector='.new-sidebar .navbar-main .logo-horizontal']
  * @param {string} [opts.path='/animation/logo/jfdotcool-wiggle-website.json']
- * @param {number} [opts.pixelsPerLoop=1000]
+ * @param {number} [opts.pixelsPerLoop=3000]
  * @param {number} [opts.loopMultiplier=0.5]
  * @param {boolean} [opts.injectContainer=true]
  * @returns {Function} cleanup function
@@ -50,7 +50,7 @@ export function initLottieLogo(opts = {}) {
   const {
     selector = ".new-sidebar .navbar-main .logo-horizontal",
     path = "/animation/logo/jfdotcool-wiggle-website.json", // ← ton dossier actuel "logo"
-    pixelsPerLoop = 1000,
+    pixelsPerLoop = 3000,
     loopMultiplier = 0.5,
     injectContainer = true,
   } = opts;
