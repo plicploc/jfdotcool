@@ -1,10 +1,11 @@
 // src/core/app.js
-// Boot global: Smooth (ScrollSmoother via JF.Smooth) → Transitions → Lottie Logo → SuperGallery
-// Diag + Horizontal Scroll (durée hybride) + Reveal stagger
+// Boot global: Smooth (ScrollSmoother) → Transitions → Lottie Logo → SuperGallery
+// Diag + Horizontal Scroll: durée hybride (max(extraX, items*vhPerItem))
 
 import { initTransitions } from "../features/transitions.js";
 import { initLottieLogo } from "../features/lottie/index.js";
 import { initSuperGallery } from "../features/supergallery.js";
+import "../vendors/smooth.js"; // <- rend JF.Smooth dispo dans le bundle
 
 (function () {
   const JF = (window.JF = window.JF || {});
@@ -18,6 +19,48 @@ import { initSuperGallery } from "../features/supergallery.js";
     try { fn(); } catch (e) { console.warn(`[once:${key}]`, e); }
     return true;
   }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // Smooth bootstrap (API stable)
+  (function attachSmoothAPI () {
+    JF.Smooth = JF.Smooth || (function () {
+      let smoother = null;
+
+      function isEditor() {
+        try { return !!(window.Webflow?.env?.("editor") || window.Webflow?.env?.("design")); }
+        catch { return false; }
+      }
+      function isActive() {
+        return !!(window.ScrollSmoother && window.ScrollSmoother.get && window.ScrollSmoother.get());
+      }
+      function mount() {
+        if (isEditor()) { console.info("[Smooth] skip (Webflow Editor/Designer)"); return; }
+        if (!window.gsap || !window.ScrollTrigger) { console.warn("[Smooth] GSAP/ScrollTrigger manquant"); return; }
+        gsap.registerPlugin(ScrollTrigger);
+        if (!window.ScrollSmoother) { console.warn("[Smooth] ScrollSmoother non chargé"); return; }
+
+        const existing = window.ScrollSmoother.get();
+        if (existing) { console.log("[Smooth] get", existing); return; }
+
+        const wrapper = document.querySelector(".smooth-wrapper");
+        const content = document.querySelector(".smooth-content");
+        if (!wrapper || !content) { console.warn("[Smooth] wrapper/content introuvables"); return; }
+
+        smoother = window.ScrollSmoother.create({
+          wrapper: ".smooth-wrapper",
+          content: ".smooth-content",
+          smooth: 1.2,
+          effects: true,
+          normalizeScroll: true
+        });
+      }
+      function mountPage() {
+        try { window.ScrollTrigger?.refresh(); } catch {}
+        try { window.ScrollSmoother?.get()?.refresh(true); } catch {}
+      }
+      return { mount, isActive, mountPage };
+    })();
+  })();
 
   // ───────────────────────────────────────────────────────────────────────────
   // Hooks DOM / Webflow
@@ -40,10 +83,6 @@ import { initSuperGallery } from "../features/supergallery.js";
   // Mount steps
   function mountSmoothOnce() {
     once(() => {
-      if (!window.JF?.Smooth) {
-        console.warn("[Smooth] API non trouvée (assure-toi de charger smooth.js avant app.js)");
-        return;
-      }
       JF.Smooth.mount();
       if (JF.Smooth.isActive()) JF.Smooth.mountPage();
     }, "smooth");
@@ -89,175 +128,169 @@ import { initSuperGallery } from "../features/supergallery.js";
     }, "sg-diag");
   }
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // Pin + horizontal + reveal stagger (corrige padding-left au départ)
-  function enableSuperGalleryHorizontalScrollOnce(defaultVhPerItem = 50) {
-    const JF = (window.JF = window.JF || {});
-    if (JF.__once_sgHScroll) return;
-    JF.__once_sgHScroll = true;
+// Pin + horizontal + reveal stagger sur les items
+// → corrige la distance en intégrant le padding-left du track (offset gauche réel)
+function enableSuperGalleryHorizontalScrollOnce(defaultVhPerItem = 50) {
+  const JF = (window.JF = window.JF || {});
+  if (JF.__once_sgHScroll) return;
+  JF.__once_sgHScroll = true;
 
-    if (!window.gsap || !window.ScrollTrigger) return;
-    gsap.registerPlugin(ScrollTrigger);
+  if (!window.gsap || !window.ScrollTrigger) return;
+  gsap.registerPlugin(ScrollTrigger);
 
-    // Kill anciens ST sur .supergallery (sécurité)
-    ScrollTrigger.getAll().forEach(st => {
-      const trg = st.vars?.trigger;
-      if (trg && trg.classList?.contains("supergallery")) st.kill(true);
-    });
+  // Sécurité: tuer d’anciens ST éventuels
+  ScrollTrigger.getAll().forEach(st => {
+    const trg = st.vars?.trigger;
+    if (trg && trg.classList?.contains("supergallery")) st.kill(true);
+  });
 
-    const isTouch = ScrollTrigger.isTouch; // mobile/tablette
+  document.querySelectorAll(".supergallery").forEach((gallery, idx) => {
+    const wrapper = gallery.querySelector(".supergallery-wrapper");
+    const track   = gallery.querySelector(".supergallery-collectionlist");
+    const items   = track ? gsap.utils.toArray(".slide-supergallery", track) : [];
+    if (!wrapper || !track || !items.length) return;
 
-    // viewport height stable (visualViewport si dispo)
-    const getViewportHeight = () =>
-      (window.visualViewport && window.visualViewport.height) ||
-      window.innerHeight ||
-      document.documentElement.clientHeight;
+    // Option par data-attr (par galerie)
+    const attr = parseFloat(gallery.getAttribute("data-vh-per-item"));
+    const vhPerItem = Number.isFinite(attr) ? attr : defaultVhPerItem;
 
-    document.querySelectorAll(".supergallery").forEach((gallery, idx) => {
-      const wrapper = gallery.querySelector(".supergallery-wrapper");
-      const track   = gallery.querySelector(".supergallery-collectionlist");
-      const items   = track ? gsap.utils.toArray(".slide-supergallery", track) : [];
-      if (!wrapper || !track || !items.length) return;
+    // RESET transform (hyper important)
+    gsap.set(track, { clearProps: "x,transform", x: 0, force3D: true });
 
-      const attr = parseFloat(gallery.getAttribute("data-vh-per-item"));
-      const vhPerItem = Number.isFinite(attr) ? attr : defaultVhPerItem;
+    // ---- Mesures robustes (référentiel = wrapper pinné) ----
+    const viewportW = () => wrapper.clientWidth || wrapper.offsetWidth || 0;
 
-      // RESET transform
-      gsap.set(track, { clearProps: "x,transform", x: 0, force3D: true });
+    // offset gauche initial du track vs wrapper (souvent = padding-left du track)
+    let baseLeft = 0;
+    const computeBaseLeft = () => {
+      // Mesurer à x:0
+      gsap.set(track, { x: 0 });
+      const wr = wrapper.getBoundingClientRect();
+      const tr = track.getBoundingClientRect();
+      baseLeft = Math.max(0, tr.left - wr.left);
+    };
 
-      // Mesures robustes (référentiel = wrapper pinné)
-      const viewportW = () => wrapper.clientWidth || wrapper.offsetWidth || 0;
+    // distance horizontale totale à parcourir
+    // scrollWidth inclut padding-left + padding-right
+    // On rajoute baseLeft pour "récupérer" le padding-left visible au départ
+    const travelWithPadding = () => {
+      const sw = track.scrollWidth || 0;
+      const vw = viewportW();
+      return Math.max(0, (sw - vw) + baseLeft);
+    };
 
-      // offset gauche initial du track vs wrapper (≈ padding-left)
-      let baseLeft = 0;
-      const computeBaseLeft = () => {
-        gsap.set(track, { x: 0 });
-        const wr = wrapper.getBoundingClientRect();
-        const tr = track.getBoundingClientRect();
-        baseLeft = Math.max(0, tr.left - wr.left);
-      };
+    // Durée verticale souhaitée en px via “X vh par item”
+    const vhPx        = () => Math.max(window.innerHeight, document.documentElement.clientHeight) * (vhPerItem / 100);
+    const pinHeightPx = () => items.length * vhPx();
 
-      // distance horizontale totale (inclut pad-left visible au départ)
-      const travelWithPadding = () => {
-        const sw = track.scrollWidth || 0;
-        const vw = viewportW();
-        return Math.max(0, (sw - vw) + baseLeft);
-      };
+    // Durée hybride = on couvre au moins toute la largeur
+    const endDistance = () => Math.max(1, Math.max(travelWithPadding(), pinHeightPx()));
 
-      // Durée verticale via “X vh par item” (viewportHeight stable mobile)
-      const vhPx        = () => getViewportHeight() * (vhPerItem / 100);
-      const pinHeightPx = () => items.length * vhPx();
+    // Hauteur réelle de section (pinSpacing:false)
+    const applySectionHeight = () => {
+      const total = endDistance() + (wrapper.offsetHeight || 0); // 100vh wrapper + durée virtuelle
+      gallery.style.minHeight = `${Math.ceil(total)}px`;
+    };
 
-      // Durée hybride: couvrir au moins toute la largeur
-      const endDistance = () => Math.max(1, Math.max(travelWithPadding(), pinHeightPx()));
+    // Tweens reveal utilitaires (tes timings)
+    const D = 0.4, STAG = 0.05, E = "power2.inOut";
+    const revealInFromDown = () =>
+      gsap.fromTo(items, { y: "20vh",  autoAlpha: 0 }, { duration: D, y: 0, autoAlpha: 1, stagger: STAG, ease: E, overwrite: "auto" });
+    const revealInFromUp = () =>
+      gsap.fromTo(items, { y: "-20vh", autoAlpha: 0 }, { duration: D, y: 0, autoAlpha: 1, stagger: STAG, ease: E, overwrite: "auto" });
+    const revealOutToUp = () =>
+      gsap.to(items, { duration: D, y: "-20vh", autoAlpha: 0, stagger: STAG, ease: E, overwrite: "auto" });
+    const revealOutToDown = () =>
+      gsap.to(items, { duration: D, y: "20vh",  autoAlpha: 0, stagger: STAG, ease: E, overwrite: "auto" });
 
-      // Hauteur réelle de section (pinSpacing:false)
-      const applySectionHeight = () => {
-        const total = endDistance() + (wrapper.offsetHeight || 0); // 100vh wrapper + durée virtuelle
-        gallery.style.minHeight = `${Math.ceil(total)}px`;
-      };
+    // Build ST unique
+    let st = null;
+    const build = () => {
+      if (st) { st.kill(); st = null; }
 
-      // Reveal (timings de ton fichier actuel)
-      const D = 0.4, STAG = 0.05, E = "power2.inOut";
-      const revealInFromDown = () =>
-        gsap.fromTo(items, { y: "20vh",  autoAlpha: 0 }, { duration: D, y: 0, autoAlpha: 1, stagger: STAG, ease: E, overwrite: "auto" });
-      const revealInFromUp = () =>
-        gsap.fromTo(items, { y: "-20vh", autoAlpha: 0 }, { duration: D, y: 0, autoAlpha: 1, stagger: STAG, ease: E, overwrite: "auto" });
-      const revealOutToUp = () =>
-        gsap.to(items, { duration: D, y: "-20vh", autoAlpha: 0, stagger: STAG, ease: E, overwrite: "auto" });
-      const revealOutToDown = () =>
-        gsap.to(items, { duration: D, y: "20vh",  autoAlpha: 0, stagger: STAG, ease: E, overwrite: "auto" });
+      // init
+      computeBaseLeft();
+      gsap.set(track, { x: 0 });
+      gsap.set(items, { y: "20vh", autoAlpha: 0 }); // état initial avant pin
+      applySectionHeight();
 
-      const smoother = window.ScrollSmoother?.get?.();
-      const pinType = smoother ? "transform" : undefined; // auto si pas de smoother
+      st = ScrollTrigger.create({
+        id: `sg-${idx}`,
+        trigger: gallery,
+        // NE PAS définir "scroller" (Smoother auto)
+        start: "top top",                 // démarre dès que la section touche le haut
+        end: () => "+=" + endDistance(),  // durée réelle du pin
+        pin: wrapper,
+        pinType: "transform",
+        pinSpacing: false,                // on gère la hauteur nous-mêmes
+        scrub: 1,
+        anticipatePin: 1,
+        invalidateOnRefresh: true,
+        // markers: true,
 
-      // Build ST unique
-      let st = null;
-      const build = () => {
-        if (st) { st.kill(); st = null; }
+        // MAPPING horizontal
+        onUpdate: self => {
+          const x = -travelWithPadding() * self.progress; // 0 → -distance (avec pad-left)
+          const cur = gsap.getProperty(track, "x");
+          if (Math.abs(cur - x) > 0.5) gsap.set(track, { x });
+        },
 
-        computeBaseLeft();
-        gsap.set(track, { x: 0 });
-        gsap.set(items, { y: "20vh", autoAlpha: 0 }); // état initial avant pin
-        applySectionHeight();
-
-        st = ScrollTrigger.create({
-          id: `sg-${idx}`,
-          trigger: gallery,
-          // NE PAS définir "scroller" (Smoother auto)
-          start: "top top",
-          end: () => "+=" + endDistance(),
-          pin: wrapper,
-          pinType,                  // "transform" si smoother actif
-          pinSpacing: false,        // on gère la hauteur nous-mêmes
-          scrub: 1,
-          anticipatePin: 1,
-          invalidateOnRefresh: true,
-          // markers: true,
-
-          onUpdate: self => {
-            const x = -travelWithPadding() * self.progress;
-            const cur = gsap.getProperty(track, "x");
-            if (Math.abs(cur - x) > 0.5) gsap.set(track, { x });
-          },
-
-          onEnter:      () => revealInFromDown(),
-          onEnterBack:  () => revealInFromUp(),
-          onLeave:      () => revealOutToUp(),
-          onLeaveBack:  () => revealOutToDown()
-        });
-      };
-
-      build();
-
-      // Activer/désactiver si pas d’overflow
-      const updateActive = () => {
-        computeBaseLeft();
-        const active = travelWithPadding() > 2;
-        if (!active) {
-          st?.disable();
-          gsap.set(track, { clearProps: "transform" });
-          gsap.set(items, { clearProps: "all" });
-        } else {
-          st?.enable();
-        }
-      };
-
-      // Refresh / hauteur / lazy CMS
-      const doRefresh = () => {
-        computeBaseLeft();
-        applySectionHeight();
-        ScrollTrigger.refresh();
-        updateActive();
-      };
-
-      ScrollTrigger.addEventListener("refresh", () => {
-        computeBaseLeft();
-        applySectionHeight();
-        updateActive();
+        // REVEAL: entrée/sortie (sens du scroll)
+        onEnter:      () => revealInFromDown(), // arrive par le bas → y:+20vh → 0
+        onEnterBack:  () => revealInFromUp(),   // on remonte → y:-20vh → 0
+        onLeave:      () => revealOutToUp(),    // sort vers le haut → 0 → -20vh
+        onLeaveBack:  () => revealOutToDown()   // redescend → 0 → +20vh
       });
+    };
 
-      setTimeout(doRefresh, 120);
-      setTimeout(doRefresh, 600);
+    build();
 
-      // Desktop: rebuild sur resize; Mobile: éviter le rebuild perpétuel (barre URL)
-      if (!isTouch) {
-        window.addEventListener("resize", () => {
-          clearTimeout(JF.__sgRzTO);
-          JF.__sgRzTO = setTimeout(() => { build(); doRefresh(); }, 120);
-        }, { passive: true });
+    // Désactive si pas d’overflow horizontal
+    const updateActive = () => {
+      computeBaseLeft();
+      const active = travelWithPadding() > 2;
+      if (!active) {
+        st?.disable();
+        gsap.set(track, { clearProps: "transform" });
+        gsap.set(items, { clearProps: "all" }); // laissons-les visibles
       } else {
-        window.addEventListener("orientationchange", () => {
-          setTimeout(() => { build(); doRefresh(); }, 250);
-        }, { passive: true });
+        st?.enable();
       }
+    };
+
+    // Re-mesures / hauteur / (lazy CMS & resize)
+    const doRefresh = () => {
+      computeBaseLeft();
+      applySectionHeight();
+      ScrollTrigger.refresh();
+      updateActive();
+    };
+
+    ScrollTrigger.addEventListener("refresh", () => {
+      computeBaseLeft();
+      applySectionHeight();
+      updateActive();
     });
-  }
+
+    setTimeout(doRefresh, 120);
+    setTimeout(doRefresh, 600);
+
+    window.addEventListener("resize", () => {
+      clearTimeout(JF.__sgRzTO);
+      JF.__sgRzTO = setTimeout(() => {
+        build();
+        doRefresh();
+      }, 120);
+    }, { passive: true });
+  });
+}
+
+
 
   // ───────────────────────────────────────────────────────────────────────────
   // Orchestration stricte et unique
   function start() {
-    mountSmoothOnce();                       // 1) Smooth (fourni par smooth.js)
+    mountSmoothOnce();                       // 1) Smooth
     mountTransitionsOnce();                  // 2) Transitions
     mountLottieLogoOnce();                   // 3) Lottie
     bootSuperGalleryDiagnosticsOnce();       // 4) Diag (logs)
