@@ -1,18 +1,24 @@
 import { build } from "esbuild";
 import { readFileSync, writeFileSync, mkdirSync, cpSync, existsSync } from "fs";
 import { join } from "path";
+import { execSync } from "child_process";
 
-// Version depuis package.json
-const version = JSON.parse(readFileSync("package.json", "utf8")).version;
+// 1) Version prioritaire via env (RELEASE_VERSION), sinon package.json
+const pkgVersion = JSON.parse(readFileSync("package.json", "utf8")).version;
+const version = (process.env.RELEASE_VERSION || pkgVersion).replace(/^v/i, "");
 
-// Prépare le dossier de sortie
+// (optionnel) utile pour debug
+let gitShort = "";
+try { gitShort = execSync("git rev-parse --short HEAD").toString().trim(); } catch {}
+
+// 2) Prépare dist
 const OUTDIR = "dist";
 mkdirSync(OUTDIR, { recursive: true });
 
-// Bandeau d’en-tête
-const banner = `/* JF Webflow App v${version} | build: ${new Date().toISOString()} */`;
+// 3) Bandeau
+const banner = `/* JF Webflow App v${version} | build: ${new Date().toISOString()}${gitShort ? " | commit: "+gitShort : ""} */`;
 
-// Build principal
+// 4) Build principal
 await build({
   entryPoints: ["src/index.js"],
   bundle: true,
@@ -24,11 +30,11 @@ await build({
   minify: process.argv.includes("--minify"),
 });
 
-// Duplique le bundle en "latest"
+// 5) Duplique en latest
 const latest = readFileSync(join(OUTDIR, `app.v${version}.js`), "utf8");
 writeFileSync(join(OUTDIR, "app.latest.js"), latest);
 
-// Copie tout le dossier "static" → "dist"
+// 6) Copie static → dist (inchangé)
 try {
   if (existsSync("static")) {
     cpSync("static", OUTDIR, { recursive: true });
