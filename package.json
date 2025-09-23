@@ -1,21 +1,27 @@
 {
   "name": "jfdotcool",
   "version": "1.3.0",
+  "private": true,
+  "type": "module",
   "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "node esbuild.config.mjs --watch",
-    "build": "node esbuild.config.mjs --minify"
-  },
-  "keywords": [],
+  "description": "",
   "author": "Jean-Francois Perrault",
   "license": "ISC",
-  "description": "",
-  "type": "module",
+  "scripts": {
+    "dev": "node esbuild.config.mjs --watch",
+    "build": "node ./scripts/build.mjs --minify",
+    "preversion": "node ./scripts/ensure-clean.mjs",
+    "version": "npm run build && git add -A dist && git commit -m \"build: dist for v$npm_package_version\"",
+    "postversion": "git push && git push --tags",
+    "release:patch": "npm version patch -m \"chore(release): v%s\"",
+    "release:minor": "npm version minor -m \"chore(release): v%s\"",
+    "release:major": "npm version major -m \"chore(release): v%s\""
+  },
   "devDependencies": {
     "esbuild": "^0.25.9"
   },
   "dependencies": {
     "lottie-web": "^5.13.0"
-  }
+  },
+  "keywords": []
 }
