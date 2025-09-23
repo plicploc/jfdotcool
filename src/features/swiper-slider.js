@@ -69,6 +69,7 @@ function buildOptions(containerEl) {
     spaceBetween: 0,
     slidesPerView: 1,
     effect: 'creative',
+    speed:600,
     creativeEffect: {
       prev: {
         shadow: false,
