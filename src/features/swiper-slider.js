@@ -8,6 +8,60 @@
  * Dépendances:
  *  - Swiper (window.Swiper doit être disponible)
  */
+function fillSlideCaptionFromAlt(slide) {
+  if (!slide) return;
+  const captionEl = slide.querySelector('.txt-slide');
+  if (!captionEl) return;
+  const img =
+    slide.querySelector('.swiper-slide-image img') ||
+    slide.querySelector('img.swiper-slide-image') ||
+    slide.querySelector('.swiper-slide-image');
+  let altText = '';
+  if (img && typeof img.getAttribute === 'function') {
+    altText = (img.getAttribute('alt') || '').trim();
+  }
+  if (altText) {
+    captionEl.textContent = altText;
+  }
+}
+
+/* -----------------------------
+   Helpers d’affichage légende
+--------------------------------*/
+function getActiveCaptionEl(containerEl) {
+  return containerEl.querySelector('.swiper-slide.swiper-slide-active .txt-slide');
+}
+
+function hideAllCaptions(containerEl) {
+  containerEl.querySelectorAll('.swiper-slide .txt-slide').forEach(el => el.classList.add('info-hidden'));
+}
+
+function showActiveCaption(containerEl) {
+  const el = getActiveCaptionEl(containerEl);
+  if (el) el.classList.remove('info-hidden');
+}
+
+function hideActiveCaption(containerEl) {
+  const el = getActiveCaptionEl(containerEl);
+  if (el) el.classList.add('info-hidden');
+}
+
+function clearCaptionTimers(containerEl) {
+  if (containerEl.__captionHideTO) { clearTimeout(containerEl.__captionHideTO); containerEl.__captionHideTO = null; }
+  if (containerEl.__activityTO)    { clearTimeout(containerEl.__activityTO);    containerEl.__activityTO = null; }
+}
+
+function scheduleAutoHide(containerEl, delay = 3000) {
+  if (containerEl.__captionHideTO) clearTimeout(containerEl.__captionHideTO);
+  containerEl.__captionHideTO = setTimeout(() => {
+    hideActiveCaption(containerEl);
+    containerEl.__captionHideTO = null;
+  }, delay);
+}
+
+/* --------------------------------
+   Logique d’état des slides
+---------------------------------*/
 function getNativeStateForSlide(slide) {
   const C = slide.classList;
   // priorité stricte : active > prev > next > visible > inactive
@@ -31,12 +85,26 @@ function updateSlideStates(swiper, moving = false) {
       state === 'visible'  ? 'is-visible'  : 'is-inactive'
     );
 
-    // texte dans .txt-slide (si présent)
-    const txt = slide.querySelector('.txt-slide');
-    if (txt) txt.textContent = moving ? `${state} (moving)` : state;
+    // Alimente la légende depuis l'alt si présent
+    fillSlideCaptionFromAlt(slide);
+
+    // Par défaut, on s'assure que TOUTES les captions sont masquées…
+    const cap = slide.querySelector('.txt-slide');
+        if (cap) {
+      if (
+        swiper.el.classList.contains('is-moving') || // en mouvement
+        !slide.classList.contains('is-active')      // ou pas active
+      ) {
+        cap.classList.add('info-hidden');
+      }
+      // Sinon, c'est le cycle de timers (init, activité, auto-hide) qui décide
+    }
   });
 }
 
+/* --------------------------------
+   Boot & mouvement réel
+---------------------------------*/
 function markBoot(swiper) {
   swiper.__bootAt = performance.now();
   swiper.__didRealMove = false;
@@ -55,12 +123,43 @@ function detectRealMove(swiper, threshold = 0.5) {
   return moved || swiper.__didRealMove;
 }
 
-
+/* --------------------------------
+   Options Swiper + événements
+---------------------------------*/
 function buildOptions(containerEl) {
   // Navigation scoped au container le plus proche (meilleure isolation quand plusieurs sliders)
   const nav = containerEl.querySelector('.swiper-navigation');
   const nextEl = nav?.querySelector('.is-next') || containerEl.querySelector('.is-next');
   const prevEl = nav?.querySelector('.is-prev') || containerEl.querySelector('.is-prev');
+
+  // Gestion des listeners pointeur pour l’activité sur le container
+  function attachPointerActivity() {
+    if (containerEl.__pointerHandlerAttached) return;
+    const onPointerMove = () => {
+      // Sur activité: on montre la caption active et on lance un timer d’inactivité
+      showActiveCaption(containerEl);
+      // Ce cycle "inactivité" surpasse l'autohide court ; on annule l'autohide courant
+      if (containerEl.__captionHideTO) { clearTimeout(containerEl.__captionHideTO); containerEl.__captionHideTO = null; }
+      if (containerEl.__activityTO) clearTimeout(containerEl.__activityTO);
+      containerEl.__activityTO = setTimeout(() => {
+        hideActiveCaption(containerEl);
+        containerEl.__activityTO = null;
+      }, 3000);
+    };
+    containerEl.__onPointerMove = onPointerMove;
+    // pointermove couvre souris + stylet + tactile (selon navigateur); on ajoute aussi touchstart pour fiabilité mobile
+    containerEl.addEventListener('pointermove', onPointerMove, { passive: true });
+    containerEl.addEventListener('touchstart', onPointerMove, { passive: true });
+    containerEl.__pointerHandlerAttached = true;
+  }
+
+  function detachPointerActivity() {
+    if (!containerEl.__pointerHandlerAttached) return;
+    containerEl.removeEventListener('pointermove', containerEl.__onPointerMove);
+    containerEl.removeEventListener('touchstart', containerEl.__onPointerMove);
+    containerEl.__pointerHandlerAttached = false;
+    containerEl.__onPointerMove = null;
+  }
 
   return {
     grabCursor: true,
@@ -69,7 +168,7 @@ function buildOptions(containerEl) {
     spaceBetween: 0,
     slidesPerView: 1,
     effect: 'creative',
-    speed:600,
+    speed: 600,
     creativeEffect: {
       prev: {
         shadow: false,
@@ -88,43 +187,74 @@ function buildOptions(containerEl) {
       nextEl: nextEl || '.swiper-navigation .is-next',
       prevEl: prevEl || '.swiper-navigation .is-prev',
     },
+
     // Events utiles pour états UI
     on: {
-    init(swiper) {
-        markBoot(swiper);                // ← horodatage du boot
+      init(swiper) {
+        markBoot(swiper);
         containerEl.classList.remove('is-moving');
-        updateSlideStates(swiper, false); // ← pas de "(moving)" au chargement
-    },
 
-    slideChangeTransitionStart(swiper) {
+        // 1) États + alt -> caption
+        updateSlideStates(swiper, false);
+
+        // 2) Par défaut, cacher toutes les captions puis montrer celle de la slide active 3s
+        hideAllCaptions(containerEl);
+        showActiveCaption(containerEl);
+        scheduleAutoHide(containerEl, 15000);
+
+        // 3) Pointeur actif sur le container
+        attachPointerActivity();
+      },
+
+      slideChangeTransitionStart(swiper) {
         // Ignore la 1ère transition “fantôme” au boot
         if (isBooting(swiper) && !swiper.__didRealMove) return;
         containerEl.classList.add('is-moving');
+
+        // La slide active devient inactive → on remasque tout de suite
+        clearCaptionTimers(containerEl);
+        hideAllCaptions(containerEl);
+
         updateSlideStates(swiper, true);
-    },
+      },
 
-    slideChangeTransitionEnd(swiper) {
+      slideChangeTransitionEnd(swiper) {
         containerEl.classList.remove('is-moving');
-        updateSlideStates(swiper, false);
-    },
 
-    setTranslate(swiper) {
+        // Nouvelle slide active : montrer puis auto-masquer après 3s
+        updateSlideStates(swiper, false);
+        hideAllCaptions(containerEl);
+        showActiveCaption(containerEl);
+        scheduleAutoHide(containerEl, 3000);
+      },
+
+      setTranslate(swiper) {
         // Swiper spamme setTranslate au layout : on ne passe en moving qu’après un “vrai” move
-        if (!detectRealMove(swiper)) return;         // ← ignore tant que ça n’a pas vraiment bougé
-        if (isBooting(swiper)) return;               // ← et ignore la fenêtre de boot
+        if (!detectRealMove(swiper)) return;
+        if (isBooting(swiper)) return;
         containerEl.classList.add('is-moving');
         updateSlideStates(swiper, true);
-    },
+      },
 
-    transitionEnd(swiper) {
+      transitionEnd(swiper) {
         containerEl.classList.remove('is-moving');
         updateSlideStates(swiper, false);
-    }
-    }
+      },
 
-
-    };
+      // Nettoyage si Swiper détruit l’instance via API
+      beforeDestroy(swiper) {
+        clearCaptionTimers(containerEl);
+        // détacher les listeners pointeur
+        if (containerEl.__pointerHandlerAttached) {
+          containerEl.removeEventListener('pointermove', containerEl.__onPointerMove);
+          containerEl.removeEventListener('touchstart', containerEl.__onPointerMove);
+          containerEl.__pointerHandlerAttached = false;
+          containerEl.__onPointerMove = null;
+        }
+      }
     }
+  };
+}
 
 /**
  * Instancie tous les sliders dans `root` (document par défaut).
@@ -174,6 +304,14 @@ export function destroySwiperSliders(root = document) {
     const inst = containerEl._swiper;
     if (inst && typeof inst.destroy === 'function') {
       inst.destroy(true, true);
+    }
+    // Nettoyage timers + listeners
+    clearCaptionTimers(containerEl);
+    if (containerEl.__pointerHandlerAttached) {
+      containerEl.removeEventListener('pointermove', containerEl.__onPointerMove);
+      containerEl.removeEventListener('touchstart', containerEl.__onPointerMove);
+      containerEl.__pointerHandlerAttached = false;
+      containerEl.__onPointerMove = null;
     }
     containerEl.removeAttribute('data-initialized');
     delete containerEl._swiper;
