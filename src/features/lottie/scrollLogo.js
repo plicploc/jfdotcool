@@ -28,7 +28,7 @@ function getScrollY() {
 export function initLottieLogo(opts = {}) {
   const {
     selector = ".new-sidebar .navbar-main .logo-horizontal",
-    path = "/animation/logo/jfdotcool-wiggle-website.json", // ← ton dossier actuel "logo"
+    path = LOGO_JSON, // ← ton dossier actuel "logo"
     pixelsPerLoop = 8000,
     loopMultiplier = 0.2,
     injectContainer = true,
