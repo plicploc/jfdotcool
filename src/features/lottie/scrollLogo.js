@@ -12,17 +12,9 @@ function getScrollY() {
   }
   return window.pageYOffset || document.documentElement.scrollTop || 0;
 }
+  const LOGO_JSON = 'https://cdn.jsdelivr.net/gh/plicploc/jfdotcool@main/dist/animation/logo/jfdotcool-wiggle-website.json';
 
-// Résout un chemin JSON vers la bonne base (CDN /dist ou site)
-function resolveLottiePath(p) {
-  if (!p) return null;
-  if (/^https?:\/\//i.test(p)) return p; // URL absolue
-  const clean = p.replace(/^\//, "");
 
-  // Option: base fixe (CDN) si définie
-  if (window.JF?.ASSETS_BASE) {
-    return `${String(window.JF.ASSETS_BASE).replace(/\/$/, "")}/${clean}`;
-  }
 
   // Essaie de retrouver la base /dist/ à partir du <script src=".../dist/app.*.js">
   const scripts = Array.from(document.scripts);
@@ -49,7 +41,7 @@ function resolveLottiePath(p) {
 export function initLottieLogo(opts = {}) {
   const {
     selector = ".new-sidebar .navbar-main .logo-horizontal",
-    path = "/animation/logo/jfdotcool-wiggle-website.json", // ← ton dossier actuel "logo"
+    path = LOGO_JSON, // ← ton dossier actuel "logo"
     pixelsPerLoop = 8000,
     loopMultiplier = 0.2,
     injectContainer = true,
