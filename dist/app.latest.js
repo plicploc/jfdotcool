@@ -1,4 +1,4 @@
-/* JF Webflow App v1.3.0 | build: 2025-09-23T13:37:12.956Z | commit: 0695f14 */
+/* JF Webflow App v1.3.0 | build: 2025-09-23T19:11:59.167Z | commit: fa9273b */
 (() => {
   var __create = Object.create;
   var __defProp = Object.defineProperty;
@@ -16577,6 +16577,50 @@
   }
 
   // src/features/swiper-slider.js
+  function fillSlideCaptionFromAlt(slide) {
+    if (!slide) return;
+    const captionEl = slide.querySelector(".txt-slide");
+    if (!captionEl) return;
+    const img = slide.querySelector(".swiper-slide-image img") || slide.querySelector("img.swiper-slide-image") || slide.querySelector(".swiper-slide-image");
+    let altText = "";
+    if (img && typeof img.getAttribute === "function") {
+      altText = (img.getAttribute("alt") || "").trim();
+    }
+    if (altText) {
+      captionEl.textContent = altText;
+    }
+  }
+  function getActiveCaptionEl(containerEl) {
+    return containerEl.querySelector(".swiper-slide.swiper-slide-active .txt-slide");
+  }
+  function hideAllCaptions(containerEl) {
+    containerEl.querySelectorAll(".swiper-slide .txt-slide").forEach((el) => el.classList.add("info-hidden"));
+  }
+  function showActiveCaption(containerEl) {
+    const el = getActiveCaptionEl(containerEl);
+    if (el) el.classList.remove("info-hidden");
+  }
+  function hideActiveCaption(containerEl) {
+    const el = getActiveCaptionEl(containerEl);
+    if (el) el.classList.add("info-hidden");
+  }
+  function clearCaptionTimers(containerEl) {
+    if (containerEl.__captionHideTO) {
+      clearTimeout(containerEl.__captionHideTO);
+      containerEl.__captionHideTO = null;
+    }
+    if (containerEl.__activityTO) {
+      clearTimeout(containerEl.__activityTO);
+      containerEl.__activityTO = null;
+    }
+  }
+  function scheduleAutoHide(containerEl, delay = 3e3) {
+    if (containerEl.__captionHideTO) clearTimeout(containerEl.__captionHideTO);
+    containerEl.__captionHideTO = setTimeout(() => {
+      hideActiveCaption(containerEl);
+      containerEl.__captionHideTO = null;
+    }, delay);
+  }
   function getNativeStateForSlide(slide) {
     const C = slide.classList;
     if (C.contains("swiper-slide-active") || C.contains("swiper-slide-duplicate-active")) return "active";
@@ -16592,8 +16636,14 @@
       slide.classList.add(
         state === "active" ? "is-active" : state === "prev" ? "is-prev" : state === "next" ? "is-next" : state === "visible" ? "is-visible" : "is-inactive"
       );
-      const txt = slide.querySelector(".txt-slide");
-      if (txt) txt.textContent = moving ? `${state} (moving)` : state;
+      fillSlideCaptionFromAlt(slide);
+      const cap = slide.querySelector(".txt-slide");
+      if (cap) {
+        if (swiper.el.classList.contains("is-moving") || // en mouvement
+        !slide.classList.contains("is-active")) {
+          cap.classList.add("info-hidden");
+        }
+      }
     });
   }
   function markBoot(swiper) {
@@ -16615,6 +16665,32 @@
     const nav = containerEl.querySelector(".swiper-navigation");
     const nextEl = (nav == null ? void 0 : nav.querySelector(".is-next")) || containerEl.querySelector(".is-next");
     const prevEl = (nav == null ? void 0 : nav.querySelector(".is-prev")) || containerEl.querySelector(".is-prev");
+    function attachPointerActivity() {
+      if (containerEl.__pointerHandlerAttached) return;
+      const onPointerMove = () => {
+        showActiveCaption(containerEl);
+        if (containerEl.__captionHideTO) {
+          clearTimeout(containerEl.__captionHideTO);
+          containerEl.__captionHideTO = null;
+        }
+        if (containerEl.__activityTO) clearTimeout(containerEl.__activityTO);
+        containerEl.__activityTO = setTimeout(() => {
+          hideActiveCaption(containerEl);
+          containerEl.__activityTO = null;
+        }, 3e3);
+      };
+      containerEl.__onPointerMove = onPointerMove;
+      containerEl.addEventListener("pointermove", onPointerMove, { passive: true });
+      containerEl.addEventListener("touchstart", onPointerMove, { passive: true });
+      containerEl.__pointerHandlerAttached = true;
+    }
+    function detachPointerActivity() {
+      if (!containerEl.__pointerHandlerAttached) return;
+      containerEl.removeEventListener("pointermove", containerEl.__onPointerMove);
+      containerEl.removeEventListener("touchstart", containerEl.__onPointerMove);
+      containerEl.__pointerHandlerAttached = false;
+      containerEl.__onPointerMove = null;
+    }
     return {
       grabCursor: true,
       centeredSlides: true,
@@ -16622,6 +16698,7 @@
       spaceBetween: 0,
       slidesPerView: 1,
       effect: "creative",
+      speed: 600,
       creativeEffect: {
         prev: {
           shadow: false,
@@ -16646,15 +16723,24 @@
           markBoot(swiper);
           containerEl.classList.remove("is-moving");
           updateSlideStates(swiper, false);
+          hideAllCaptions(containerEl);
+          showActiveCaption(containerEl);
+          scheduleAutoHide(containerEl, 15e3);
+          attachPointerActivity();
         },
         slideChangeTransitionStart(swiper) {
           if (isBooting(swiper) && !swiper.__didRealMove) return;
           containerEl.classList.add("is-moving");
+          clearCaptionTimers(containerEl);
+          hideAllCaptions(containerEl);
           updateSlideStates(swiper, true);
         },
         slideChangeTransitionEnd(swiper) {
           containerEl.classList.remove("is-moving");
           updateSlideStates(swiper, false);
+          hideAllCaptions(containerEl);
+          showActiveCaption(containerEl);
+          scheduleAutoHide(containerEl, 3e3);
         },
         setTranslate(swiper) {
           if (!detectRealMove(swiper)) return;
@@ -16665,6 +16751,16 @@
         transitionEnd(swiper) {
           containerEl.classList.remove("is-moving");
           updateSlideStates(swiper, false);
+        },
+        // Nettoyage si Swiper détruit l’instance via API
+        beforeDestroy(swiper) {
+          clearCaptionTimers(containerEl);
+          if (containerEl.__pointerHandlerAttached) {
+            containerEl.removeEventListener("pointermove", containerEl.__onPointerMove);
+            containerEl.removeEventListener("touchstart", containerEl.__onPointerMove);
+            containerEl.__pointerHandlerAttached = false;
+            containerEl.__onPointerMove = null;
+          }
         }
       }
     };
