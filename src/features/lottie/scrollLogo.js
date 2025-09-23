@@ -15,19 +15,6 @@ function getScrollY() {
   const LOGO_JSON = 'https://cdn.jsdelivr.net/gh/plicploc/jfdotcool@main/dist/animation/logo/jfdotcool-wiggle-website.json';
 
 
-
-  // Essaie de retrouver la base /dist/ à partir du <script src=".../dist/app.*.js">
-  const scripts = Array.from(document.scripts);
-  const carrier = scripts.reverse().find((s) => /\/dist\/app\./.test(s.src)) || null;
-  if (carrier?.src && carrier.src.includes("/dist/")) {
-    const base = carrier.src.split("/dist/")[0] + "/dist";
-    return `${base}/${clean}`;
-  }
-
-  // Fallback: relatif au domaine
-  return `/${clean}`;
-}
-
 /**
  * Init Lottie logo dans le sélecteur donné.
  * @param {Object} opts
@@ -41,7 +28,7 @@ function getScrollY() {
 export function initLottieLogo(opts = {}) {
   const {
     selector = ".new-sidebar .navbar-main .logo-horizontal",
-    path = LOGO_JSON, // ← ton dossier actuel "logo"
+    path = "/animation/logo/jfdotcool-wiggle-website.json", // ← ton dossier actuel "logo"
     pixelsPerLoop = 8000,
     loopMultiplier = 0.2,
     injectContainer = true,
