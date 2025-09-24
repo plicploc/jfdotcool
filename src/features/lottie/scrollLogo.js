@@ -12,7 +12,7 @@ function getScrollY() {
   }
   return window.pageYOffset || document.documentElement.scrollTop || 0;
 }
-  const LOGO_JSON = 'https://cdn.jsdelivr.net/gh/plicploc/jfdotcool@main/dist/animation/logo/jfdotcool-wiggle-website.json';
+  const LOGO_JSON = 'https://jfdotcool.netlify.app/animation/logo/jfdotcool-wiggle-website.json';
 
 
 /**
