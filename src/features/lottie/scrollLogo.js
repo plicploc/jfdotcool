@@ -42,8 +42,8 @@ export function initLottieLogo(opts = {}) {
 
   // Permettre de surcharger le fichier via data-lottie-path
   const dataPath = host.getAttribute("data-lottie-path");
-  const animPath = resolveLottiePath(dataPath || path);
-  console.log("[lottieLogo] JSON →", animPath);
+
+  console.log("[lottieLogo] JSON écris en dur →", LOGO_JSON);
 
   // Trouver / créer un container propre pour la Lottie
   let container = host.querySelector(".logo-lottie");
@@ -63,7 +63,7 @@ export function initLottieLogo(opts = {}) {
     renderer: "svg",
     loop: false,
     autoplay: false,
-    path: animPath,
+    path: LOGO_JSON,
   });
 
   let totalFrames = 0;
@@ -73,7 +73,7 @@ export function initLottieLogo(opts = {}) {
 
   // Diagnostics utiles si le JSON ne charge pas / assets manquants
   animation.addEventListener("data_failed", () => {
-    console.error("[lottieLogo] data_failed (JSON introuvable ?)", animPath);
+    console.error("[lottieLogo] data_failed (JSON introuvable ?)", LOGO_JSON);
   });
   animation.addEventListener("config_ready", () => {
     console.log("[lottieLogo] config_ready");
