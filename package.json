@@ -21,6 +21,7 @@
     "esbuild": "^0.25.9"
   },
   "dependencies": {
+    "@splinetool/runtime": "^1.10.71",
     "lottie-web": "^5.13.0"
   },
   "keywords": []

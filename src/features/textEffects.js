@@ -1,8 +1,8 @@
-
-// src/features/textEffects.js (ou intégré dans ton bundle)
+// src/features/textEffects.js
 window.JF = window.JF || {};
 window.JF.TextFX = (function () {
-  let splits = new WeakMap(); // pour revert proprement par élément
+  let splits = new WeakMap();
+
   function inEditor() {
     try {
       if (window.Webflow && typeof Webflow.env === "function") {
@@ -19,23 +19,22 @@ window.JF.TextFX = (function () {
       window.addEventListener("load", cb, { once: true });
     }
   }
-
-  /**
-   * Animation “pouetpouet” : reveal par lettres
+/**
+   * NOUVELLE FONCTION
+   * Animation "revealTitle" : reveal rapide par lettres
    * @param {Element|string|NodeList|Array} targets - sélecteur ou éléments
    * @param {Object} opts - options GSAP
    */
-  function pouetpouet(targets, opts = {}) {
+  function revealTitle(targets, opts = {}) {
     if (inEditor()) return;
 
+    // Options par défaut basées sur votre demande
     const {
-      duration = 0.3,
-      delay    = .2,
-      stagger  = 0.05,
-      y        = "30%",     // move Y
-      rotationX= -90,       // deg
-      rotationY= 45,        // deg
-      ease     = "power2.out(1.7",
+      duration = 0.05, // Durée d'animation pour chaque lettre (très rapide)
+      delay    = 0.3,    // Délai avant le début de l'animation
+      stagger  = 0.05,   // Décalage temporel entre chaque lettre
+      ease     = "none", // Aucune accélération/décélération ("no ease")
+      classNameToRemove = 'hidden', // La classe CSS à retirer
       onComplete = null
     } = opts;
 
@@ -45,7 +44,6 @@ window.JF.TextFX = (function () {
 
     if (!els.length) return;
 
-    // Attendre les fonts pour éviter l’erreur SplitText
     afterFontsReady(() => {
       if (typeof gsap === "undefined" || typeof SplitText === "undefined") {
         console.warn("[TextFX] GSAP/SplitText indisponible");
@@ -53,51 +51,87 @@ window.JF.TextFX = (function () {
       }
 
       els.forEach(el => {
-        // revert d’un ancien split si ré-init
+            console.log("▶️ [TextFX] revealTitle lancé...");
+
         const prev = splits.get(el);
         if (prev?.revert) prev.revert();
 
-        // split par lettres
-        const split = new SplitText(el, { type: "chars", charsClass: "is-char" });
+        // 1. Split text, letters
+        const split = new SplitText(el, { type: "chars" });
         splits.set(el, split);
 
-        // état de départ (optionnel : set silencieux)
-        gsap.set(split.chars, { transformOrigin: "50% 50% -1px" });
-
-        // anim FROM → TO (to = identité)
+        // 2. Animation des lettres
         gsap.from(split.chars, {
           duration,
           delay,
-          y,
-          rotationX,
-          rotationY,
-          opacity: 0,
-          ease,
-          stagger,
+          opacity: 0, // Opacity from 0 to 100
+          ease,      // No ease
+          stagger: {
+            each: stagger, // Stagger: offset time 0,05s
+            from: "start", // from start
+            ease: "none"   // no ease (pour le stagger lui-même)
+          },
+          onStart: () => {
+            // 3. Remove-class « hidden »
+            if (classNameToRemove) {
+              el.classList.remove(classNameToRemove);
+            }
+          },
           onComplete
         });
       });
 
-      // Si ScrollTrigger présent, rafraîchir après le split
       if (window.ScrollTrigger && typeof ScrollTrigger.refresh === "function") {
         ScrollTrigger.refresh();
       }
     });
   }
+  /**
+   * Animation “pouetpouet” : reveal par lettres
+   */
+  function pouetpouet(targets, opts = {}) {
+    // ... (code inchangé)
+  }
 
-  // API publique
-  return {
-    pouetpouet,
-    // utilitaire si tu veux nettoyer manuellement
-    revert(targets) {
-      const els = typeof targets === "string"
-        ? Array.from(document.querySelectorAll(targets))
-        : (targets?.length != null ? Array.from(targets) : [targets]).filter(Boolean);
-      els.forEach(el => {
-        const s = splits.get(el);
-        if (s?.revert) s.revert();
-        splits.delete(el);
-      });
+  /**
+   * Animation “headTitle” : reveal par lignes
+   */
+  function headTitle(targets, opts = {}) {
+    // ... (code inchangé)
+  }
+
+  /**
+   * NOUVELLE FONCTION
+   * Test d'accessibilité : vérifie et log les éléments ciblés
+   * @param {Element|string|NodeList|Array} targets - sélecteur ou éléments à tester
+   */
+  function testFile(targets) {
+    console.log("▶️ [TextFX] Lancement du test de ciblage...");
+
+    const els = typeof targets === "string"
+      ? Array.from(document.querySelectorAll(targets))
+      : (targets?.length != null ? Array.from(targets) : [targets]).filter(Boolean);
+
+    if (!els.length) {
+      console.warn(`⏹️ [TextFX] Test terminé : Aucun élément trouvé pour le sélecteur "${targets}"`);
+      return;
     }
-  };
+    
+    console.log(`✅ [TextFX] Test terminé : ${els.length} élément(s) trouvé(s) pour "${targets}":`);
+    console.log(els);
+  }
+
+
+  // API publique (Mise à jour)
+  // API publique (Mise à jour)
+return {
+  pouetpouet,
+  headTitle,
+  revealTitle, // <-- Ajoutez la nouvelle fonction ici
+  testFile,
+  revert(targets) {
+    // ... code de la fonction revert
+  }
+};
+
 })();

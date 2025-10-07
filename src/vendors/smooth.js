@@ -60,7 +60,7 @@ window.JF.Smooth = (() => {
 
     // debug
     window.__smoother = smoother;
-    console.log("[Smooth] created", { wrapper: WRAPPER_SEL, content: CONTENT_SEL });
+    //console.log("[Smooth] created", { wrapper: WRAPPER_SEL, content: CONTENT_SEL });
 
     // Petit refresh
     window.gsap?.delayedCall?.(0.02, () => window.ScrollTrigger?.refresh?.());

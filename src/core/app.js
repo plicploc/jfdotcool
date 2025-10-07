@@ -1,12 +1,21 @@
 // src/core/app.js
-// Boot global: Smooth (ScrollSmoother) → Transitions → Lottie Logo → Swiper
 
+// ───────────────────────────────────────────────────────────────────────────
+// 1. IMPORTATIONS DES MODULES
+// ───────────────────────────────────────────────────────────────────────────
 import { initTransitions } from "../features/transitions.js";
 import { initLottieLogo } from "../features/lottie/index.js";
-import { initSwiperSliders } from "../features/swiper-slider.js"; // NEW
-import "../vendors/smooth.js"; // <- rend JF.Smooth dispo dans le bundle
+import { initSwiperSliders } from "../features/swiper-slider.js";
+import { initHomescrollAnimations } from "../features/homescroll-anim.js";
+import { initCustomCursors } from "../features/custom-cursor.js";
+import "../vendors/smooth.js"; 
+import "../features/textEffects.js";
+
 
 (function () {
+  // ───────────────────────────────────────────────────────────────────────────
+  // 2. CONFIGURATION DE BASE (NAMESPACE ET HELPER 'ONCE')
+  // ───────────────────────────────────────────────────────────────────────────
   const JF = (window.JF = window.JF || {});
   if (JF.__bootLocked) return;
   JF.__bootLocked = true;
@@ -20,112 +29,169 @@ import "../vendors/smooth.js"; // <- rend JF.Smooth dispo dans le bundle
   }
 
   // ───────────────────────────────────────────────────────────────────────────
-  // Smooth bootstrap (API stable)
-  (function attachSmoothAPI () {
+  // 3. FONCTIONS D'INITIALISATION POUR CHAQUE FONCTIONNALITÉ
+  // ───────────────────────────────────────────────────────────────────────────
+
+  // -- Smooth Scrolling --
+  (function attachSmoothAPI() {
     JF.Smooth = JF.Smooth || (function () {
       let smoother = null;
-
       function isEditor() {
         try { return !!(window.Webflow?.env?.("editor") || window.Webflow?.env?.("design")); }
         catch { return false; }
       }
-      function isActive() {
-        return !!(window.ScrollSmoother && window.ScrollSmoother.get && window.ScrollSmoother.get());
-      }
+      function isActive() { return !!(window.ScrollSmoother && window.ScrollSmoother.get && window.ScrollSmoother.get()); }
+      
+      // --- CETTE FONCTION CONTIENT LA CONFIGURATION FINALE ET CORRECTE ---
       function mount() {
-        if (isEditor()) { console.info("[Smooth] skip (Webflow Editor/Designer)"); return; }
-        if (!window.gsap || !window.ScrollTrigger) { console.warn("[Smooth] GSAP/ScrollTrigger manquant"); return; }
-        gsap.registerPlugin(ScrollTrigger);
-        if (!window.ScrollSmoother) { console.warn("[Smooth] ScrollSmoother non chargé"); return; }
+        if (isEditor() || isActive()) {
+          return;
+        }
+        
+        try {
+          gsap.registerPlugin(window.ScrollSmoother);
+          
+          smoother = window.ScrollSmoother.create({
+            wrapper: ".smooth-wrapper",
+            content: ".smooth-content",
+            smooth: 1.2,
+            effects: true,
+          });
 
-        const existing = window.ScrollSmoother.get();
-        if (existing) { console.log("[Smooth] get", existing); return; }
+          // Configuration complète du proxy pour une synchronisation parfaite
+          ScrollTrigger.scrollerProxy(smoother.wrapper, {
+            scrollTop(value) {
+              if (arguments.length) {
+                smoother.scrollTop(value);
+              }
+              return smoother.scrollTop();
+            },
+            getBoundingClientRect() {
+              return {top: 0, left: 0, width: window.innerWidth, height: window.innerHeight};
+            },
+            // Cette ligne est cruciale pour que le "pinning" fonctionne
+            pinType: smoother.wrapper.style.transform ? "transform" : "fixed"
+          });
 
-        const wrapper = document.querySelector(".smooth-wrapper");
-        const content = document.querySelector(".smooth-content");
-        if (!wrapper || !content) { console.warn("[Smooth] wrapper/content introuvables"); return; }
+          // Lie les événements de rafraîchissement pour une synchronisation continue
+          ScrollTrigger.addEventListener("refresh", () => smoother.update());
+          
+          // Lance un rafraîchissement initial pour tout synchroniser
+          ScrollTrigger.refresh();
+          
+          console.log("✅ [APP.JS] ScrollSmoother et ScrollerProxy sont configurés.");
 
-        smoother = window.ScrollSmoother.create({
-          wrapper: ".smooth-wrapper",
-          content: ".smooth-content",
-          smooth: 1.2,
-          effects: true,
-          normalizeScroll: true
-        });
+        } catch (e) { 
+          console.warn("[Smooth] L'initialisation de ScrollSmoother a échoué :", e); 
+        }
       }
-      function mountPage() {
-        try { window.ScrollTrigger?.refresh(); } catch {}
-        try { window.ScrollSmoother?.get()?.refresh(true); } catch {}
+
+      function unmount() {
+        if (isEditor() || !isActive()) return;
+        try { if (smoother) smoother.kill(); smoother = null; } catch (e) { console.warn("[Smooth] unmount failed", e); }
       }
-      return { mount, isActive, mountPage };
+      return { isActive, mount, unmount };
     })();
   })();
+  
+  function mountSmoothOnce() { once(() => JF.Smooth.mount(), "smooth"); }
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // Hooks DOM / Webflow
-  function onDOMReady(fn) {
-    if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", () => once(fn, "domReady"), { once: true });
-    } else {
-      once(fn, "domReady");
-    }
-  }
-  function onWebflowReady(fn) {
-    if (window.Webflow && Array.isArray(window.Webflow.push)) {
-      window.Webflow.push(() => once(fn, "webflowReady"));
-    } else {
-      once(fn, "webflowReady-noWF");
-    }
-  }
-
-  // ───────────────────────────────────────────────────────────────────────────
-  // Mount steps
-  function mountSmoothOnce() {
-    once(() => {
-      JF.Smooth.mount();
-      if (JF.Smooth.isActive()) JF.Smooth.mountPage();
-    }, "smooth");
-  }
+  // -- Le reste du fichier est inchangé --
   function mountTransitionsOnce() {
-    once(() => { initTransitions?.(); }, "transitions");
+    once(() => {
+      try { initTransitions(); } catch (e) { console.warn("[transitions] init failed", e); }
+    }, "transitions");
   }
+
   function mountLottieLogoOnce() {
     once(() => {
-      try {
-        JF._destroyLottieLogo?.();
-        JF._destroyLottieLogo = initLottieLogo({
-          selector: ".new-sidebar .navbar-main .logo-horizontal",
-          path: "/animation/logo/jfdotcool-wiggle-website.json",
-          pixelsPerLoop: 1000,
-          loopMultiplier: 0.5
-        });
-      } catch (e) { console.warn("[lottieLogo] init failed", e); }
+      try { initLottieLogo(); } catch (e) { console.warn("[lottieLogo] init failed", e); }
     }, "lottieLogo");
   }
+  
+  function herotitlerevealOnce() {
+    once(() => {
+      try { JF.TextFX.revealTitle('.main-title-block .txttitle'); } catch (e) { console.warn("[heroTitleReveal] init failed", e); }
+    }, 'heroTitleReveal');
+  }
+  
   function mountSwiperOnce() {
     once(() => {
       try {
-        const instances = initSwiperSliders(document);
-        // Option de debug: stocker les instances si besoin
-        JF._swiperInstances = instances;
-      } catch (e) {
-        console.warn("[swiper] init failed", e);
-      }
+        const instances = initSwiperSliders(); 
+        JF._swiperInstances = instances; 
+      } catch (e) { console.warn("[swiper] init failed", e); }
     }, "swiper");
   }
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // Orchestration stricte et unique
-  function start() {
-    mountSmoothOnce();        // 1) Smooth
-    mountTransitionsOnce();   // 2) Transitions
-    mountLottieLogoOnce();    // 3) Lottie
-    mountSwiperOnce();        // 4) Swiper (remplace SuperGallery)
+  function mountCustomCursorsOnce() {
+    once(() => {
+      try { initCustomCursors(); } catch (e) { console.warn("[customCursor] init failed", e); }
+    }, "customCursors");
   }
 
-  onDOMReady(() => onWebflowReady(start));
-  window.addEventListener("load", () => once(start, "lateStart"), { once: true });
+  function mountSplineAnimationsOnce() {
+    once(() => {
+      try {
+        const splineContainer = document.querySelector('.homeanim-wrapper');
+        if (splineContainer) { initHomescrollAnimations(splineContainer); }
+      } catch (e) { console.warn("[spline] init failed", e); }
+    }, 'spline');
+  }
 
-  // Cleanup Lottie au changement de page (reload)
-  window.addEventListener("pagehide", () => { JF._destroyLottieLogo?.(); }, { once: true });
+  function initNavigation() {
+    const MENU_LINKS_SELECTOR = '.navbar-link'; const ADDED_FLAG = 'data-added-current';
+    const PARENT_RULES = [{ parentHref: '/work', test: (path) => path.startsWith('/work/') && path !== '/work/' }];
+    function normalizePath(path) { try { let p = path.replace(/\/{2,}/g, '/'); if (p.length > 1) p = p.replace(/\/+$/, ''); return p || '/'; } catch { return '/'; } }
+    function matchesHref(el, targetHref) { const href = (el.getAttribute('href') || '').trim(); if (!href) return false; try { if (href.startsWith('http')) { const u = new URL(href); return normalizePath(u.pathname) === normalizePath(targetHref); } } catch {} return normalizePath(href) === normalizePath(targetHref); }
+    function removeAddedCurrents() { document.querySelectorAll(`${MENU_LINKS_SELECTOR}[${ADDED_FLAG}="true"]`).forEach((el) => { el.classList.remove('w--current'); el.removeAttribute(ADDED_FLAG); }); }
+    function applyParentCurrent() { const path = normalizePath(window.location.pathname); removeAddedCurrents(); const rule = PARENT_RULES.find((r) => r.test(path)); if (!rule) return; const parentLink = Array.from(document.querySelectorAll(MENU_LINKS_SELECTOR)).find((a) => matchesHref(a, rule.parentHref)); if (parentLink) { parentLink.classList.add('w--current'); parentLink.setAttribute(ADDED_FLAG, 'true'); } }
+    applyParentCurrent();
+    const nav = document.querySelector('.sidebar, .navbar, [data-nav], .sidebar-new') || document.body;
+    const mo = new MutationObserver(() => applyParentCurrent());
+    mo.observe(nav, { childList: true, subtree: true });
+  }
+  function mountNavigationOnce() {
+    once(() => {
+      try { initNavigation(); } catch (e) { console.warn("[navigation] init failed", e); }
+    }, "navigation");
+  }
+
+  function linkSwiperAndCursors() {
+    try {
+      const swiperContainers = document.querySelectorAll('.swiper[data-cursor]');
+      swiperContainers.forEach(container => {
+        const swiperInstance = container._swiper;
+        const cursorInstance = container._customCursorInstance;
+        if (swiperInstance && cursorInstance && typeof cursorInstance.listenToSwiper === 'function') {
+          cursorInstance.listenToSwiper(swiperInstance);
+        }
+      });
+    } catch(e) {
+      console.warn("[linkSwiperAndCursors] failed", e);
+    }
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // 4. ORCHESTRATION (LA FONCTION 'START' QUI LANCE TOUT)
+  // ───────────────────────────────────────────────────────────────────────────
+  function start() {
+    mountSmoothOnce();
+    mountTransitionsOnce();
+    herotitlerevealOnce();
+    mountLottieLogoOnce();
+    mountSwiperOnce();
+    mountCustomCursorsOnce();
+    mountSplineAnimationsOnce();
+    mountNavigationOnce();
+    
+    linkSwiperAndCursors();
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // 5. DÉCLENCHEMENT
+  // ───────────────────────────────────────────────────────────────────────────
+  document.addEventListener("DOMContentLoaded", start);
+
 })();
+

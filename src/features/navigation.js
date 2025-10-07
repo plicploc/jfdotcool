@@ -1,4 +1,4 @@
-// navigation.js — parent "current" hack pour templates CMS (Webflow)
+// src/features/navigation.js — parent "current" hack pour templates CMS (Webflow)
 // - Ajoute .w--current sur le lien parent "Work" quand on est sur /work/slug
 // - Idempotent (on retire uniquement ce qu'on a ajouté nous-mêmes)
 
@@ -48,6 +48,7 @@
   }
 
   function applyParentCurrent() {
+    console.log("▶️ [Nav] Application des règles de current parent...");
     const path = normalizePath(window.location.pathname);
 
     // 1) Nettoie ce qu’on a pu ajouter précédemment (sans toucher au current natif Webflow)

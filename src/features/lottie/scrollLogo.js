@@ -43,7 +43,7 @@ export function initLottieLogo(opts = {}) {
   // Permettre de surcharger le fichier via data-lottie-path
   const dataPath = host.getAttribute("data-lottie-path");
 
-  console.log("[lottieLogo] JSON écris en dur →", LOGO_JSON);
+  //console.log("[lottieLogo] JSON écris en dur →", LOGO_JSON);
 
   // Trouver / créer un container propre pour la Lottie
   let container = host.querySelector(".logo-lottie");
@@ -76,7 +76,7 @@ export function initLottieLogo(opts = {}) {
     console.error("[lottieLogo] data_failed (JSON introuvable ?)", LOGO_JSON);
   });
   animation.addEventListener("config_ready", () => {
-    console.log("[lottieLogo] config_ready");
+    //console.log("[lottieLogo] config_ready");
   });
   animation.addEventListener("loaded_images", () => {
     console.log("[lottieLogo] loaded_images");
