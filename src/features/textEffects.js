@@ -57,7 +57,7 @@ window.JF.TextFX = (function () {
         if (prev?.revert) prev.revert();
 
         // 1. Split text, letters
-        const split = new SplitText(el, { type: "chars" });
+        const split = new SplitText(el, { type: "words, chars" });
         splits.set(el, split);
 
         // 2. Animation des lettres
