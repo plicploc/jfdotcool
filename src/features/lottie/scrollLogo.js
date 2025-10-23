@@ -28,8 +28,8 @@ function getScrollY() {
 export function initLottieLogo(opts = {}) {
   const {
     selector = ".new-sidebar .navbar-main .logo-horizontal",
-    path = LOGO_JSON, // ← ton dossier actuel "logo"
-    pixelsPerLoop = 8000,
+    path = LOGO_JSON, 
+    pixelsPerLoop = 4000,
     loopMultiplier = 0.2,
     injectContainer = true,
   } = opts;
@@ -43,9 +43,7 @@ export function initLottieLogo(opts = {}) {
   // Permettre de surcharger le fichier via data-lottie-path
   const dataPath = host.getAttribute("data-lottie-path");
 
-  //console.log("[lottieLogo] JSON écris en dur →", LOGO_JSON);
 
-  // Trouver / créer un container propre pour la Lottie
   let container = host.querySelector(".logo-lottie");
   if (!container && injectContainer) {
     container = document.createElement("div");

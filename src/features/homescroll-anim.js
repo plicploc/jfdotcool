@@ -22,46 +22,46 @@ export function initHomescrollAnimations(splineContainer) {
 
     const splineApp = new Application(canvas);
     
-    splineApp.load('https://prod.spline.design/MTBBrijQQCckMJMv/scene.splinecode').then(() => {
+    splineApp.load('https://prod.spline.design/8FhyJKbr8T9z1n2j/scene.splinecode').then(() => {
 
-        const TARGET_OBJECT = "home-scene"; 
-        const particules= "particules"; 
-        const turbulences= "turbulences";
-        const seq01= "seq01"; 
-        const groupObject = splineApp.findObjectByName(TARGET_OBJECT);
+        const TARGET_rotation = "00-all-objects"; 
+           const sq01= "sq-01";
+         const sq02= "sq-02";
+         const sq03= "sq-03";
+          const sq04= "sq-04";
+             const sq05= "sq-05";
+             const sq06= "sq-06";
+        
+        const groupObject = splineApp.findObjectByName(TARGET_rotation);
         
         function seq01on() { 
             //intro
-             splineApp.emitEvent("start", particules); 
-            splineApp.emitEvent("start", TARGET_OBJECT);
+            splineApp.emitEvent("mouseDown", sq01);
         
         }
         function seq01off() {}
         function seq02on() { 
-            //awesome
-        splineApp.emitEvent("mouseUp", particules);
-         splineApp.emitEvent("mouseUp", TARGET_OBJECT);
-
+            splineApp.emitEvent("mouseDown", sq02);
     }
         function seq02off() {}
         function seq03on() { 
             //but
-            splineApp.emitEvent("mouseDown", particules);
-            splineApp.emitEvent("mouseDown", TARGET_OBJECT);
+            splineApp.emitEvent("mouseDown", sq03);
+            
 
          }
         function seq03off() {}
         function seq04on() {
-            console.log("seq04on");
-             splineApp.emitEvent("mouseUp", seq01);
-             splineApp.emitEvent("start", particules);
+           
+
+               splineApp.emitEvent("mouseDown", sq04);
 
 
          }
         function seq04off() {}
-        function seq05on() { splineApp.emitEvent("mouseHover", TARGET_OBJECT); }
+        function seq05on() { splineApp.emitEvent("mouseDown", sq05); }
         function seq05off() {}
-        function seq06on() { splineApp.emitEvent("keyUp", TARGET_OBJECT); }
+        function seq06on() { splineApp.emitEvent("mouseDown", sq06); }
         function seq06off() {}
 
         // Le trigger pour le pinning et la rotation reste inchangé.

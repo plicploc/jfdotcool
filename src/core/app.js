@@ -8,7 +8,7 @@ import { initLottieLogo } from "../features/lottie/index.js";
 import { initSwiperSliders } from "../features/swiper-slider.js";
 import { initHomescrollAnimations } from "../features/homescroll-anim.js";
 import { initCustomCursors } from "../features/custom-cursor.js";
-import "../vendors/smooth.js"; 
+import "../vendors/smooth.js";
 import "../features/textEffects.js";
 
 
@@ -42,7 +42,6 @@ import "../features/textEffects.js";
       }
       function isActive() { return !!(window.ScrollSmoother && window.ScrollSmoother.get && window.ScrollSmoother.get()); }
       
-      // --- CETTE FONCTION CONTIENT LA CONFIGURATION FINALE ET CORRECTE ---
       function mount() {
         if (isEditor() || isActive()) {
           return;
@@ -58,7 +57,6 @@ import "../features/textEffects.js";
             effects: true,
           });
 
-          // Configuration complète du proxy pour une synchronisation parfaite
           ScrollTrigger.scrollerProxy(smoother.wrapper, {
             scrollTop(value) {
               if (arguments.length) {
@@ -69,14 +67,10 @@ import "../features/textEffects.js";
             getBoundingClientRect() {
               return {top: 0, left: 0, width: window.innerWidth, height: window.innerHeight};
             },
-            // Cette ligne est cruciale pour que le "pinning" fonctionne
             pinType: smoother.wrapper.style.transform ? "transform" : "fixed"
           });
 
-          // Lie les événements de rafraîchissement pour une synchronisation continue
           ScrollTrigger.addEventListener("refresh", () => smoother.update());
-          
-          // Lance un rafraîchissement initial pour tout synchroniser
           ScrollTrigger.refresh();
           
           console.log("✅ [APP.JS] ScrollSmoother et ScrollerProxy sont configurés.");
@@ -96,7 +90,6 @@ import "../features/textEffects.js";
   
   function mountSmoothOnce() { once(() => JF.Smooth.mount(), "smooth"); }
 
-  // -- Le reste du fichier est inchangé --
   function mountTransitionsOnce() {
     once(() => {
       try { initTransitions(); } catch (e) { console.warn("[transitions] init failed", e); }
@@ -115,6 +108,18 @@ import "../features/textEffects.js";
     }, 'heroTitleReveal');
   }
   
+  // NOUVELLE FONCTION D'INITIALISATION POUR revealTxtContent
+  function revealTxtContentOnce() {
+    once(() => {
+      try { 
+        // On cible tous les conteneurs '.txt-content'
+        JF.TextFX.revealTxtContent('.txt-content'); 
+      } catch (e) { 
+        console.warn("[revealTxtContent] init failed", e); 
+      }
+    }, 'revealTxtContent');
+  }
+
   function mountSwiperOnce() {
     once(() => {
       try {
@@ -145,7 +150,7 @@ import "../features/textEffects.js";
     function normalizePath(path) { try { let p = path.replace(/\/{2,}/g, '/'); if (p.length > 1) p = p.replace(/\/+$/, ''); return p || '/'; } catch { return '/'; } }
     function matchesHref(el, targetHref) { const href = (el.getAttribute('href') || '').trim(); if (!href) return false; try { if (href.startsWith('http')) { const u = new URL(href); return normalizePath(u.pathname) === normalizePath(targetHref); } } catch {} return normalizePath(href) === normalizePath(targetHref); }
     function removeAddedCurrents() { document.querySelectorAll(`${MENU_LINKS_SELECTOR}[${ADDED_FLAG}="true"]`).forEach((el) => { el.classList.remove('w--current'); el.removeAttribute(ADDED_FLAG); }); }
-    function applyParentCurrent() { const path = normalizePath(window.location.pathname); removeAddedCurrents(); const rule = PARENT_RULES.find((r) => r.test(path)); if (!rule) return; const parentLink = Array.from(document.querySelectorAll(MENU_LINKS_SELECTOR)).find((a) => matchesHref(a, rule.parentHref)); if (parentLink) { parentLink.classList.add('w--current'); parentLink.setAttribute(ADDED_FLAG, 'true'); } }
+    function applyParentCurrent() { const path = normalizePath(window.location.pathname); removeAddedCurrents(); const rule = PARENT_RULES.find((r) => r.test(path)); if (!rule) return; const parentLink = Array.from(document.querySelectorAll(MENU_LINKS_Selector)).find((a) => matchesHref(a, rule.parentHref)); if (parentLink) { parentLink.classList.add('w--current'); parentLink.setAttribute(ADDED_FLAG, 'true'); } }
     applyParentCurrent();
     const nav = document.querySelector('.sidebar, .navbar, [data-nav], .sidebar-new') || document.body;
     const mo = new MutationObserver(() => applyParentCurrent());
@@ -179,6 +184,7 @@ import "../features/textEffects.js";
     mountSmoothOnce();
     mountTransitionsOnce();
     herotitlerevealOnce();
+    revealTxtContentOnce(); // <-- APPEL DE LA NOUVELLE FONCTION ICI
     mountLottieLogoOnce();
     mountSwiperOnce();
     mountCustomCursorsOnce();
@@ -194,4 +200,3 @@ import "../features/textEffects.js";
   document.addEventListener("DOMContentLoaded", start);
 
 })();
-
