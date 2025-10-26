@@ -36,38 +36,12 @@ import "../features/textEffects.js";
   (function attachSmoothAPI() {
     JF.Smooth = JF.Smooth || (function () {
       let smoother = null;
-      // --- MODIFICATION : Ajout d'une variable pour stocker l'instance matchMedia ---
-      let mm = null; 
-      
       function isEditor() {
         try { return !!(window.Webflow?.env?.("editor") || window.Webflow?.env?.("design")); }
         catch { return false; }
       }
       function isActive() { return !!(window.ScrollSmoother && window.ScrollSmoother.get && window.ScrollSmoother.get()); }
       
-      // --- MODIFICATION : Fonction helper pour configurer ScrollerProxy (évite la duplication) ---
-      function setupScrollerProxy(smootherInstance) {
-        if (!smootherInstance) return;
-
-        ScrollTrigger.scrollerProxy(smootherInstance.wrapper, {
-          scrollTop(value) {
-            if (arguments.length) {
-              smootherInstance.scrollTop(value);
-            }
-            return smootherInstance.scrollTop();
-          },
-          getBoundingClientRect() {
-            return {top: 0, left: 0, width: window.innerWidth, height: window.innerHeight};
-          },
-          pinType: smootherInstance.wrapper.style.transform ? "transform" : "fixed"
-        });
-
-        ScrollTrigger.addEventListener("refresh", () => smootherInstance.update());
-        ScrollTrigger.refresh();
-        
-        console.log("✅ [APP.JS] ScrollSmoother et ScrollerProxy sont configurés.");
-      }
-
       function mount() {
         if (isEditor() || isActive()) {
           return;
@@ -76,49 +50,30 @@ import "../features/textEffects.js";
         try {
           gsap.registerPlugin(window.ScrollSmoother);
           
-          // --- MODIFICATION : Utilisation de gsap.matchMedia() ---
-          mm = gsap.matchMedia();
-
-          // Configuration "Desktop" (écrans de 768px et plus)
-          mm.add("(min-width: 768px)", () => {
-            console.log("[Smooth] Configuration DESKTOP activée.");
-            smoother = window.ScrollSmoother.create({
-              wrapper: ".smooth-wrapper",
-              content: ".smooth-content",
-              smooth: 1.2,    // Votre lissage d'origine
-              effects: true,    // Effets activés
-            });
-            
-            // On configure le proxy pour CETTE instance
-            setupScrollerProxy(smoother);
-
-            // Fonction de nettoyage (quand on passe en mobile)
-            return () => {
-              if (smoother) smoother.kill();
-              smoother = null;
-            };
+          smoother = window.ScrollSmoother.create({
+            wrapper: ".smooth-wrapper",
+            content: ".smooth-content",
+            smooth: 1.2,
+            effects: true,
           });
 
-          // Configuration "Mobile" (écrans de 767px et moins)
-          mm.add("(max-width: 767px)", () => {
-            console.log("[Smooth] Configuration MOBILE (optimisée) activée.");
-            smoother = window.ScrollSmoother.create({
-              wrapper: ".smooth-wrapper",
-              content: ".smooth-content",
-              smooth: 1,      // Lissage réduit pour plus de réactivité
-              effects: false,   // <-- LA CLÉ DE L'OPTIMISATION : Effets désactivés
-            });
-
-            // On configure le proxy pour CETTE instance
-            setupScrollerProxy(smoother);
-
-            // Fonction de nettoyage (quand on passe en desktop)
-            return () => {
-              if (smoother) smoother.kill();
-              smoother = null;
-            };
+          ScrollTrigger.scrollerProxy(smoother.wrapper, {
+            scrollTop(value) {
+              if (arguments.length) {
+                smoother.scrollTop(value);
+              }
+              return smoother.scrollTop();
+            },
+            getBoundingClientRect() {
+              return {top: 0, left: 0, width: window.innerWidth, height: window.innerHeight};
+            },
+            pinType: smoother.wrapper.style.transform ? "transform" : "fixed"
           });
-          // --- FIN DE LA MODIFICATION ---
+
+          ScrollTrigger.addEventListener("refresh", () => smoother.update());
+          ScrollTrigger.refresh();
+          
+          console.log("✅ [APP.JS] ScrollSmoother et ScrollerProxy sont configurés.");
 
         } catch (e) { 
           console.warn("[Smooth] L'initialisation de ScrollSmoother a échoué :", e); 
@@ -126,24 +81,8 @@ import "../features/textEffects.js";
       }
 
       function unmount() {
-        if (isEditor()) return; // On garde la protection pour l'éditeur
-        
-        // --- MODIFICATION : Le unmount doit "revert" le matchMedia ---
-        try { 
-          if (mm) {
-            // mm.revert() va automatiquement appeler la fonction de nettoyage
-            // de la configuration (desktop ou mobile) qui est active.
-            mm.revert();
-            mm = null;
-          }
-          // Par sécurité, si smoother n'a pas été tué par revert()
-          if (isActive() && smoother) {
-             smoother.kill();
-             smoother = null;
-          }
-        } catch (e) { 
-          console.warn("[Smooth] unmount failed", e); 
-        }
+        if (isEditor() || !isActive()) return;
+        try { if (smoother) smoother.kill(); smoother = null; } catch (e) { console.warn("[Smooth] unmount failed", e); }
       }
       return { isActive, mount, unmount };
     })();
