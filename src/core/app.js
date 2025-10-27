@@ -8,8 +8,8 @@ import { initLottieLogo } from "../features/lottie/index.js";
 import { initSwiperSliders } from "../features/swiper-slider.js";
 import { initHomescrollAnimations } from "../features/homescroll-anim.js";
 import { initCustomCursors } from "../features/custom-cursor.js";
-import "../vendors/smooth.js";
-import "../features/textEffects.js";
+import "../vendors/smooth.js"; // Charge JF.Smooth (v1)
+import "../features/textEffects.js"; // Charge (probablement) window.SplitText
 
 
 (function () {
@@ -31,21 +31,34 @@ import "../features/textEffects.js";
   // ───────────────────────────────────────────────────────────────────────────
   // 3. FONCTIONS D'INITIALISATION POUR CHAQUE FONCTIONNALITÉ
   // ───────────────────────────────────────────────────────────────────────────
-
+function updateDebugStatus(status) {
+    try {
+      const debugEl = document.querySelector('.debug');
+      if (debugEl) {
+        debugEl.textContent = status;
+      }
+    } catch (e) {
+      console.warn('Impossible de mettre à jour le texte de debug', e);
+    }
+  }
+  
   // -- Smooth Scrolling --
   (function attachSmoothAPI() {
-    JF.Smooth = JF.Smooth || (function () {
+    JF.SmoothApp = (function () { // Renommé en JF.SmoothApp
       let smoother = null;
-      // --- MODIFICATION : Ajout d'une variable pour stocker l'instance matchMedia ---
-      let mm = null; 
+      let mm = gsap.matchMedia(); // On prépare matchMedia
       
       function isEditor() {
         try { return !!(window.Webflow?.env?.("editor") || window.Webflow?.env?.("design")); }
         catch { return false; }
       }
-      function isActive() { return !!(window.ScrollSmoother && window.ScrollSmoother.get && window.ScrollSmoother.get()); }
       
-      // --- MODIFICATION : Fonction helper pour configurer ScrollerProxy (évite la duplication) ---
+      function isActive() { 
+        const v1Active = !!(window.JF?.Smooth?.isActive && window.JF.Smooth.isActive());
+        const v2Active = !!(window.ScrollSmoother && window.ScrollSmoother.get && window.ScrollSmoother.get());
+        return v1Active || v2Active || !!smoother;
+      }
+      
       function setupScrollerProxy(smootherInstance) {
         if (!smootherInstance) return;
 
@@ -68,88 +81,100 @@ import "../features/textEffects.js";
         console.log("✅ [APP.JS] ScrollSmoother et ScrollerProxy sont configurés.");
       }
 
+      // --- MODIFICATION MAJEURE : Retour à matchMedia + Vérification HTML ---
       function mount() {
-        if (isEditor() || isActive()) {
+        console.log("debut mount (app.js)"); 
+               
+        if (isEditor()) {
+          updateDebugStatus("no smooth (editor)");
           return;
         }
-        
-        try {
-          gsap.registerPlugin(window.ScrollSmoother);
-          
-          // --- MODIFICATION : Utilisation de gsap.matchMedia() ---
-          mm = gsap.matchMedia();
 
-          // Configuration "Desktop" (écrans de 768px et plus)
-          mm.add("(min-width: 768px)", () => {
-            console.log("[Smooth] Configuration DESKTOP activée.");
-            smoother = window.ScrollSmoother.create({
-              wrapper: ".smooth-wrapper",
-              content: ".smooth-content",
-              smooth: 1.2,    // Votre lissage d'origine
-              effects: true,    // Effets activés
-            });
-            
-            // On configure le proxy pour CETTE instance
-            setupScrollerProxy(smoother);
-
-            // Fonction de nettoyage (quand on passe en mobile)
-            return () => {
-              if (smoother) smoother.kill();
-              smoother = null;
-            };
-          });
-
-          // Configuration "Mobile" (écrans de 767px et moins)
-          mm.add("(max-width: 767px)", () => {
-            console.log("[Smooth] Configuration MOBILE (optimisée) activée.");
-            smoother = window.ScrollSmoother.create({
-              wrapper: ".smooth-wrapper",
-              content: ".smooth-content",
-              smooth: 1,      // Lissage réduit pour plus de réactivité
-              effects: false,   // <-- LA CLÉ DE L'OPTIMISATION : Effets désactivés
-            });
-
-            // On configure le proxy pour CETTE instance
-            setupScrollerProxy(smoother);
-
-            // Fonction de nettoyage (quand on passe en desktop)
-            return () => {
-              if (smoother) smoother.kill();
-              smoother = null;
-            };
-          });
-          // --- FIN DE LA MODIFICATION ---
-
-        } catch (e) { 
-          console.warn("[Smooth] L'initialisation de ScrollSmoother a échoué :", e); 
+        if (isActive()) {
+          console.warn("[SmoothApp] Détecté un smoother déjà actif. On stoppe la double-init.");
+          updateDebugStatus("withsmooth (legacy)");
+          return;
         }
+
+        // --- CORRECTION DE L'ERREUR 'transform' ---
+        // On vérifie le HTML AVANT de faire quoi que ce soit.
+        const wrapperEl = document.querySelector(".smooth-wrapper");
+        const contentEl = document.querySelector(".smooth-content");
+          
+        if (!wrapperEl || !contentEl) {
+            console.warn(`[SmoothApp] HTML manquant: .smooth-wrapper (${!!wrapperEl}), .smooth-content (${!!contentEl}). Initialisation annulée.`);
+            updateDebugStatus("no smooth (HTML missing)");
+            return; // On arrête tout si le HTML n'est pas là.
+        }
+
+        // --- NOUVELLE LOGIQUE matchMedia ---
+        console.log("[SmoothApp] HTML trouvé. Initialisation de matchMedia...");
+        
+        // Configuration "Desktop" (768px et plus)
+        mm.add("(min-width: 768px)", () => {
+          console.log("[SmoothApp] Configuration DESKTOP activée.");
+          updateDebugStatus("withsmooth (desktop)");
+          
+          smoother = window.ScrollSmoother.create({
+            wrapper: wrapperEl,
+            content: contentEl,
+            smooth: 1.2,    // Lissage complet
+            effects: true     // Effets activés
+          });
+          setupScrollerProxy(smoother);
+
+          // Fonction de nettoyage
+          return () => {
+            if (smoother) smoother.kill();
+            smoother = null;
+          };
+        });
+
+        // Configuration "Mobile/Tablette" (767px et moins)
+        mm.add("(max-width: 767px)", () => {
+          console.log("[SmoothApp] Configuration MOBILE (optimisée) activée.");
+          updateDebugStatus("withsmooth (mobile)");
+          
+          smoother = window.ScrollSmoother.create({
+            wrapper: wrapperEl,
+            content: contentEl,
+            smooth: 1,      // Lissage réduit
+            effects: false    // Effets DÉSACTIVÉS (gros gain de perf)
+          });
+          setupScrollerProxy(smoother);
+
+          // Fonction de nettoyage
+          return () => {
+            if (smoother) smoother.kill();
+            smoother = null;
+          };
+        });
       }
 
       function unmount() {
-        if (isEditor()) return; // On garde la protection pour l'éditeur
-        
-        // --- MODIFICATION : Le unmount doit "revert" le matchMedia ---
+        if (isEditor()) return;
         try { 
-          if (mm) {
-            // mm.revert() va automatiquement appeler la fonction de nettoyage
-            // de la configuration (desktop ou mobile) qui est active.
-            mm.revert();
-            mm = null;
-          }
-          // Par sécurité, si smoother n'a pas été tué par revert()
-          if (isActive() && smoother) {
+          // On tue les instances matchMedia et le smoother
+          if (mm) mm.revert();
+          if (smoother) {
              smoother.kill();
              smoother = null;
           }
+          if (window.JF?.Smooth?.destroyAll) {
+            window.JF.Smooth.destroyAll();
+          }
+          updateDebugStatus(""); 
         } catch (e) { 
-          console.warn("[Smooth] unmount failed", e); 
+          console.warn("[SmoothApp] unmount failed", e); 
         }
       }
       return { isActive, mount, unmount };
     })();
   })();
   
-  function mountSmoothOnce() { once(() => JF.Smooth.mount(), "smooth"); }
+  function mountSmoothOnce() { 
+    once(() => JF.SmoothApp.mount(), "smooth_main"); 
+  }
 
   function mountTransitionsOnce() {
     once(() => {
@@ -163,17 +188,28 @@ import "../features/textEffects.js";
     }, "lottieLogo");
   }
   
+  // --- CORRECTION "buildTimeline" (inchangée) ---
   function herotitlerevealOnce() {
     once(() => {
-      try { JF.TextFX.revealTitle('.main-title-block .txttitle'); } catch (e) { console.warn("[heroTitleReveal] init failed", e); }
+      try { 
+        if (window.SplitText && !gsap.plugins.SplitText) {
+          gsap.registerPlugin(window.SplitText);
+          console.log("[herotitlerevealOnce] SplitText registered.");
+        }
+        JF.TextFX.revealTitle('.main-title-block .txttitle'); 
+      } catch (e) { 
+        console.warn("[heroTitleReveal] init failed", e); 
+      }
     }, 'heroTitleReveal');
   }
   
-  // NOUVELLE FONCTION D'INITIALISATION POUR revealTxtContent
   function revealTxtContentOnce() {
     once(() => {
       try { 
-        // On cible tous les conteneurs '.txt-content'
+        if (window.SplitText && !gsap.plugins.SplitText) {
+          gsap.registerPlugin(window.SplitText);
+          console.log("[revealTxtContentOnce] SplitText registered.");
+        }
         JF.TextFX.revealTxtContent('.txt-content'); 
       } catch (e) { 
         console.warn("[revealTxtContent] init failed", e); 
@@ -242,10 +278,26 @@ import "../features/textEffects.js";
   // 4. ORCHESTRATION (LA FONCTION 'START' QUI LANCE TOUT)
   // ───────────────────────────────────────────────────────────────────────────
   function start() {
-    mountSmoothOnce();
+
+    // --- CORRECTION "buildTimeline" (inchangée) ---
+    try {
+        if (!window.gsap) throw new Error("GSAP core not loaded");
+        if (!window.ScrollSmoother) throw new Error("ScrollSmoother not loaded");
+        
+        gsap.registerPlugin(window.ScrollSmoother);
+        console.log("[START] GSAP Plugins registered by app.js (Smoother only).");
+        
+    } catch (e) {
+        console.error("[START] Failed to register ScrollSmoother.", e);
+        updateDebugStatus("no smooth (plugin error)");
+        return; 
+    }
+
+    // Le reste de vos fonctions
+    mountSmoothOnce(); 
     mountTransitionsOnce();
-    herotitlerevealOnce();
-    revealTxtContentOnce(); // <-- APPEL DE LA NOUVELLE FONCTION ICI
+    herotitlerevealOnce(); // Va enregistrer SplitText
+    revealTxtContentOnce(); // Va enregistrer SplitText
     mountLottieLogoOnce();
     mountSwiperOnce();
     mountCustomCursorsOnce();

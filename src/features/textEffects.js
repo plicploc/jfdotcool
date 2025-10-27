@@ -51,7 +51,6 @@ window.JF.TextFX = (function () {
       }
 
       els.forEach(el => {
-        console.log("▶️ [TextFX] revealTitle lancé...");
 
         const prev = splits.get(el);
         if (prev?.revert) prev.revert();
