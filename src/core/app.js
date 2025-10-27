@@ -211,7 +211,7 @@ import "../features/textEffects.js";
     function normalizePath(path) { try { let p = path.replace(/\/{2,}/g, '/'); if (p.length > 1) p = p.replace(/\/+$/, ''); return p || '/'; } catch { return '/'; } }
     function matchesHref(el, targetHref) { const href = (el.getAttribute('href') || '').trim(); if (!href) return false; try { if (href.startsWith('http')) { const u = new URL(href); return normalizePath(u.pathname) === normalizePath(targetHref); } } catch {} return normalizePath(href) === normalizePath(targetHref); }
     function removeAddedCurrents() { document.querySelectorAll(`${MENU_LINKS_SELECTOR}[${ADDED_FLAG}="true"]`).forEach((el) => { el.classList.remove('w--current'); el.removeAttribute(ADDED_FLAG); }); }
-    function applyParentCurrent() { const path = normalizePath(window.location.pathname); removeAddedCurrents(); const rule = PARENT_RULES.find((r) => r.test(path)); if (!rule) return; const parentLink = Array.from(document.querySelectorAll(MENU_LINKS_Selector)).find((a) => matchesHref(a, rule.parentHref)); if (parentLink) { parentLink.classList.add('w--current'); parentLink.setAttribute(ADDED_FLAG, 'true'); } }
+    function applyParentCurrent() { const path = normalizePath(window.location.pathname); removeAddedCurrents(); const rule = PARENT_RULES.find((r) => r.test(path)); if (!rule) return; const parentLink = Array.from(document.querySelectorAll(MENU_LINKS_SELECTOR)).find((a) => matchesHref(a, rule.parentHref)); if (parentLink) { parentLink.classList.add('w--current'); parentLink.setAttribute(ADDED_FLAG, 'true'); } }
     applyParentCurrent();
     const nav = document.querySelector('.sidebar, .navbar, [data-nav], .sidebar-new') || document.body;
     const mo = new MutationObserver(() => applyParentCurrent());
