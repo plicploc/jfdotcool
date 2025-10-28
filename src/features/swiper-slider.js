@@ -67,7 +67,7 @@ function updateSlideStates(swiper, moving = false) {
       state === 'active'   ? 'is-active'   :
       state === 'prev'     ? 'is-prev'     :
       state === 'next'     ? 'is-next'     :
-      state === 'visible'  ? 'is-visible'  : 'is-inactive'
+      state === 'visible'  ? 'is-visible'  : 'inactive'
     );
     fillSlideCaptionFromAlt(slide);
     const cap = slide.querySelector('.txt-slide');
@@ -214,18 +214,34 @@ function buildOptions(containerEl) {
   };
 }
 
+/**
+ * VERSION CORRIGÉE de initSwiperSliders
+ * Initialise tous les sliders d'images trouvés.
+ */
 export function initSwiperSliders(root = document) {
   if (!window.Swiper) {
     console.warn('[swiper-slider] Swiper n’est pas chargé (window.Swiper introuvable).');
     return [];
   }
   const instances = [];
-  const containers = Array.from(root.querySelectorAll('.swiper-images'))
-    .map(el => el.closest('.swiper') || el)
-    .filter(Boolean);
+  
+  // MODIFICATION: On sélectionne les '.swiper' qui NE SONT PAS '.swiper-testi'
+  const containers = Array.from(root.querySelectorAll('.swiper:not(.swiper-testi)'))
+    .filter(Boolean); // Filtre au cas où
+
   containers.forEach(containerEl => {
     if (containerEl.hasAttribute('data-initialized')) return;
-    const targetEl = containerEl.querySelector('.swiper-images') || containerEl;
+    
+    // VÉRIFICATION: On s'assure que c'est bien un slider d'images
+    // Il doit contenir '.swiper-images' pour être valide
+    const imagesEl = containerEl.querySelector('.swiper-images');
+    if (!imagesEl && !containerEl.classList.contains('swiper-images')) {
+      return; // Ce n'est pas un slider d'images, on l'ignore.
+    }
+
+    // Cible '.swiper-images' si trouvé, sinon le conteneur principal
+    const targetEl = imagesEl || containerEl; 
+    
     try {
       const options = buildOptions(containerEl);
       const instance = new window.Swiper(targetEl, options);
@@ -233,19 +249,25 @@ export function initSwiperSliders(root = document) {
       containerEl._swiper = instance;
       instances.push(instance);
     } catch (err) {
-      console.error('[swiper-slider] Échec d’instanciation:', err);
+      console.error('[swiper-slider] Échec d’instanciation:', err, containerEl);
     }
   });
   return instances;
 }
 
+/**
+ * Détruit tous les sliders d'images initialisés.
+ */
 export function destroySwiperSliders(root = document) {
-  const containers = root.querySelectorAll('[data-initialized="true"]');
+  const containers = root.querySelectorAll('.swiper[data-initialized="true"]:not(.swiper-testi)');
+  
   containers.forEach(containerEl => {
     const inst = containerEl._swiper;
     if (inst && typeof inst.destroy === 'function') {
       inst.destroy(true, true);
     }
+    
+    // Nettoyage des timers et écouteurs
     clearCaptionTimers(containerEl);
     if (containerEl.__pointerHandlerAttached) {
       containerEl.removeEventListener('pointermove', containerEl.__onPointerMove);
@@ -253,7 +275,14 @@ export function destroySwiperSliders(root = document) {
       containerEl.__pointerHandlerAttached = false;
       containerEl.__onPointerMove = null;
     }
+    
+    // Nettoyage des timers de redimensionnement
+    clearTimeout(containerEl.__resizeTO);
+    containerEl.__resizeTO = null;
+    containerEl.__resizing = false;
+
     containerEl.removeAttribute('data-initialized');
     delete containerEl._swiper;
   });
 }
+

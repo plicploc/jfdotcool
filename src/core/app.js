@@ -6,6 +6,9 @@
 import { initTransitions } from "../features/transitions.js";
 import { initLottieLogo } from "../features/lottie/index.js";
 import { initSwiperSliders } from "../features/swiper-slider.js";
+// --- AJOUT ---
+import { initSwiperTestimonials } from "../features/swiper-testimonials.js";
+// --- FIN AJOUT ---
 import { initHomescrollAnimations } from "../features/homescroll-anim.js";
 import { initCustomCursors } from "../features/custom-cursor.js";
 import "../vendors/smooth.js";
@@ -239,6 +242,17 @@ import "../features/textEffects.js";
       } catch (e) { console.warn("[swiper] init failed", e); }
     }, "swiper");
   }
+  
+  // --- AJOUT ---
+  function mountSwiperTestimonialsOnce() {
+    once(() => {
+      try {
+        const instances = initSwiperTestimonials(); 
+        JF._swiperTestimonialInstances = instances; // Stocke les instances de témoignages
+      } catch (e) { console.warn("[swiperTestimonials] init failed", e); }
+    }, "swiperTestimonials"); // Clé unique
+  }
+  // --- FIN AJOUT ---
 
   function mountCustomCursorsOnce() {
     once(() => {
@@ -273,8 +287,10 @@ import "../features/textEffects.js";
     }, "navigation");
   }
 
+  // --- MODIFICATION ---
   function linkSwiperAndCursors() {
     try {
+      // Lien pour les swipers d'images
       const swiperContainers = document.querySelectorAll('.swiper[data-cursor]');
       swiperContainers.forEach(container => {
         const swiperInstance = container._swiper;
@@ -283,10 +299,22 @@ import "../features/textEffects.js";
           cursorInstance.listenToSwiper(swiperInstance);
         }
       });
+      
+      // Lien pour les swipers de témoignages
+      const testimonialContainers = document.querySelectorAll('.swiper-testi[data-cursor]');
+      testimonialContainers.forEach(container => {
+        const swiperInstance = container._swiperTestimonial; // Utilise la bonne propriété
+        const cursorInstance = container._customCursorInstance;
+        if (swiperInstance && cursorInstance && typeof cursorInstance.listenToSwiper === 'function') {
+          cursorInstance.listenToSwiper(swiperInstance);
+        }
+      });
+      
     } catch(e) {
       console.warn("[linkSwiperAndCursors] failed", e);
     }
   }
+  // --- FIN MODIFICATION ---
 
   // ───────────────────────────────────────────────────────────────────────────
   // 4. ORCHESTRATION (LA FONCTION 'START' QUI LANCE TOUT)
@@ -307,6 +335,9 @@ import "../features/textEffects.js";
     revealTxtContentOnce(); 
     mountLottieLogoOnce();
     mountSwiperOnce();
+    // --- AJOUT ---
+    mountSwiperTestimonialsOnce(); // Appel de la nouvelle fonction
+    // --- FIN AJOUT ---
     mountCustomCursorsOnce();
     mountSplineAnimationsOnce();
     mountNavigationOnce();
