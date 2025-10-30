@@ -18,7 +18,7 @@ function getScrollY() {
 /**
  * Init Lottie logo dans le sélecteur donné.
  * @param {Object} opts
- * @param {string} [opts.selector='.new-sidebar .navbar-main .logo-horizontal']
+ * @param {string} [opts.selector='.sidebar .navbar-main .logo-horizontal']
  * @param {string} [opts.path='/animation/logo/jfdotcool-wiggle-website.json']
  * @param {number} [opts.pixelsPerLoop=1000]
  * @param {number} [opts.loopMultiplier=0.5]
@@ -27,7 +27,7 @@ function getScrollY() {
  */
 export function initLottieLogo(opts = {}) {
   const {
-    selector = ".new-sidebar .navbar-main .logo-horizontal",
+    selector = ".sidebar .navbar-main .logo-horizontal",
     path = LOGO_JSON, 
     pixelsPerLoop = 4000,
     loopMultiplier = 0.2,
