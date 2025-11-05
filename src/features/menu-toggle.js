@@ -1,7 +1,7 @@
 /**
  * Gère l'ouverture/fermeture du menu burger sur mobile/tablette.
  * Utilise GSAP pour l'animation du bouton croix et gère les classes 'active'.
- * Gère le conflit click/touchend sur iOS et permet la navigation des liens.
+ * Gère le conflit click/touchend sur iOS et permet la navigation manuelle des liens.
  */
 export function setupMenuToggle() {
     // Sélecteurs des éléments clés
@@ -55,11 +55,9 @@ export function setupMenuToggle() {
         // 3. Basculer la classe 'active' sur les éléments cibles
         targetElements.forEach(element => {
             if (element) {
-                // Gérer les NodeList et les HTMLCollections
                 if (NodeList.prototype.isPrototypeOf(element) || HTMLCollection.prototype.isPrototypeOf(element)) {
                     element.forEach(el => el.classList.toggle('active', isActive));
                 } else {
-                    // Gérer les éléments simples
                     element.classList.toggle('active', isActive);
                 }
             }
@@ -72,31 +70,25 @@ export function setupMenuToggle() {
      * @param {Event} e - L'objet Event du clic
      */
     function handleMenuToggle(e) {
-        // 🛑 Conserver e.stopPropagation() pour le bouton BURGER (protection anti-bug)
+        // Conserver e.stopPropagation() pour le bouton BURGER (protection anti-bug)
         e.stopPropagation(); 
         
-        // La logique pure de bascule
         toggleMenuState();
     }
 
     /**
      * Fonction pour fermer le menu, appelée par les LIENS.
-     * Ne fait AUCUN e.stopPropagation() ou e.preventDefault().
      */
     function closeMenuIfOpen() {
         const isCurrentlyActive = opener.classList.contains('is-active');
         if (isCurrentlyActive) {
-            // Appeler la fonction de bascule pour inverser l'état
             toggleMenuState();
         }
     }
 
 
     // 4. Attacher les écouteurs d'événement pour le bouton BURGER (PROTÉGÉ)
-    // Clic pour Desktop (souris)
     opener.addEventListener('click', handleMenuToggle); 
-
-    // Toucher pour Mobile/iPad (priorité et protection)
     opener.addEventListener('touchend', function(e) {
         e.preventDefault(); 
         e.stopPropagation(); 
@@ -104,27 +96,34 @@ export function setupMenuToggle() {
     });
     
     
-    // 5. Fermeture automatique du menu après un clic sur un lien (NAVIGATION AUTORISÉE)
+    // 5. Fermeture automatique du menu après un clic sur un lien (NAVIGATION FORCÉE)
     const navbarLinks = document.querySelectorAll('.navbar-link');
 
     navbarLinks.forEach(link => {
-        // Clic pour Desktop (souris)
-        link.addEventListener('click', function(e) {
-            // Aucune action sur 'e' pour ne pas bloquer la navigation
+        const linkHandler = function(e) {
+            const linkHref = this.getAttribute('href');
+
+            // 1. Empêcher la navigation par défaut et stopper la propagation
+            e.preventDefault(); 
+            e.stopPropagation();
+            
+            // 2. Fermer le menu
             closeMenuIfOpen(); 
-        });
-        
-        // Toucher pour Mobile/iPad
-        link.addEventListener('touchend', function(e) {
-             // Nous faisons e.stopPropagation() ici pour éviter que l'événement remonte
-             // et déclenche une logique de fermeture *globale* (si elle existe),
-             // mais nous n'utilisons PAS e.preventDefault() pour laisser la navigation s'opérer.
-             e.stopPropagation(); 
-             
-             closeMenuIfOpen(); 
-             
-             // Le navigateur naviguera vers le href immédiatement après
-        });
+            
+            // 3. Forcer la navigation avec un court délai pour laisser l'animation GSAP commencer
+            if (linkHref) {
+                // Délai ajusté à la durée de l'animation GSAP (0.3s)
+                setTimeout(() => {
+                    // Utiliser Webflow.lauch(linkHref) si vous utilisez des transitions de page Webflow
+                    // Sinon, simple navigation JS :
+                    window.location.href = linkHref; 
+                }, 300); // 300ms = 0.3s
+            }
+        };
+
+        // On attache le même gestionnaire aux deux événements pour fiabilité maximale
+        link.addEventListener('click', linkHandler);
+        link.addEventListener('touchend', linkHandler);
     });
 
 }
