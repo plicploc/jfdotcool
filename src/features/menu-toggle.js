@@ -1,9 +1,9 @@
 /**
  * Gère l'ouverture/fermeture du menu burger sur mobile/tablette.
  * Utilise GSAP pour l'animation du bouton croix et gère les classes 'active'.
- * @exports setupMenuToggle
+ * Gère le conflit click/touchend sur iOS.
  */
-export function setupMenuToggle() { // <-- Ajout de 'export' ici
+export function setupMenuToggle() {
     // Sélecteurs des éléments clés
     const opener = document.querySelector('.sidebar .navbar-main .opener');
     const iconBurger = opener ? opener.querySelector('.icon-burger') : null;
@@ -13,7 +13,7 @@ export function setupMenuToggle() { // <-- Ajout de 'export' ici
     const targetElements = [
         document.querySelector('.nav-content'),
         document.querySelector('.navbar-vertical'),
-        document.querySelectorAll('.navbar-link'), 
+        document.querySelectorAll('.navbar-link'),
         document.querySelectorAll('.navbar-link .menu-link-text'),
         document.querySelector('.navbar-main')
     ];
@@ -23,7 +23,7 @@ export function setupMenuToggle() { // <-- Ajout de 'export' ici
         return;
     }
 
-    // Initialisation de l'icône croix
+    // Initialisation de l'icône croix (pour être sûr qu'elle est cachée au début)
     if (window.gsap) {
          gsap.set(iconCross, { rotation: 0, display: 'none' });
     } else {
@@ -32,11 +32,12 @@ export function setupMenuToggle() { // <-- Ajout de 'export' ici
 
 
     /**
-     * Fonction de basculement (toggle)
-     * @param {Event} e - L'objet Event du clic
+     * Fonction de basculement (toggle) qui contient toute la logique
+     * @param {Event} e - L'objet Event (peut être click ou touchend)
      */
     function handleMenuToggle(e) {
-        // 🛑 Solution pour les doubles clics/touchers sur mobile
+        // 🛑 Solution pour les doubles clics/touchers sur mobile :
+        // Stoppe l'événement de remonter aux parents et d'être interprété ailleurs.
         e.stopPropagation();
 
         // 1. Basculer les icônes (Burger <-> Cross)
@@ -70,7 +71,24 @@ export function setupMenuToggle() { // <-- Ajout de 'export' ici
         });
     }
 
-    // 4. Attacher l'écouteur d'événement
-    opener.addEventListener('click', handleMenuToggle);
+
+    // 4. Attacher les écouteurs d'événement
+    
+    // Écouteur standard pour la souris (Desktop)
+    opener.addEventListener('click', handleMenuToggle); 
+
+    // Écouteur tactile pour Mobile/iPad (prioritaire sur 'click' simulé)
+    opener.addEventListener('touchend', function(e) {
+        // Annule l'action par défaut (par exemple, le zoom ou le menu contextuel iOS)
+        e.preventDefault(); 
+        
+        // Stoppe la propagation de l'événement tactile
+        e.stopPropagation(); 
+        
+        // Exécute la logique de bascule
+        handleMenuToggle(e); 
+    });
+    
+
 }
 
