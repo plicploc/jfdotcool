@@ -134,6 +134,13 @@ class CustomCursor {
 }
 
 export function initCustomCursors(root = document) {
+  // ✅ Vérification de la présence de la classe 'w-mod-touch' sur l'élément <html>
+  const htmlElement = document.documentElement;
+  if (htmlElement.classList.contains('w-mod-touch')) {
+    console.log('[CustomCursor] Détection d\'un appareil tactile (w-mod-touch). Les curseurs personnalisés sont désactivés.');
+    return; // Sort de la fonction si un appareil tactile est détecté
+  }
+  
   const elements = root.querySelectorAll('[data-cursor]');
   elements.forEach(el => {
     const type = el.dataset.cursor;
