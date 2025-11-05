@@ -2,6 +2,7 @@
  * Gère l'ouverture/fermeture du menu burger sur mobile/tablette.
  * Utilise GSAP pour l'animation du bouton croix et gère les classes 'active'.
  * Gère le conflit click/touchend sur iOS et permet la navigation manuelle des liens.
+ * AJOUT : Contrôle l'overflow sur l'élément HTML pour bloquer le défilement du body.
  */
 export function setupMenuToggle() {
     // Sélecteurs des éléments clés
@@ -17,6 +18,9 @@ export function setupMenuToggle() {
         document.querySelectorAll('.navbar-link .menu-link-text'),
         document.querySelector('.navbar-main')
     ];
+    
+    // NOUVEAU : Cible l'élément HTML pour le contrôle de l'overflow
+    const htmlElement = document.documentElement;
 
     if (!opener || !iconBurger || !iconCross) {
         console.error("Erreur: Un ou plusieurs sélecteurs d'éléments du menu sont introuvables.");
@@ -41,6 +45,9 @@ export function setupMenuToggle() {
         // Basculer l'affichage (display: flex <-> display: none)
         iconBurger.style.display = isActive ? 'none' : 'flex';
         iconCross.style.display = isActive ? 'flex' : 'none';
+        
+        // 🛑 NOUVEAU : Toggle de la classe 'menu-open' sur <html>
+        htmlElement.classList.toggle('menu-open', isActive);
 
         // 2. Animer l'icône Croix avec GSAP
         if (window.gsap) {
@@ -112,16 +119,12 @@ export function setupMenuToggle() {
             
             // 3. Forcer la navigation avec un court délai pour laisser l'animation GSAP commencer
             if (linkHref) {
-                // Délai ajusté à la durée de l'animation GSAP (0.3s)
                 setTimeout(() => {
-                    // Utiliser Webflow.lauch(linkHref) si vous utilisez des transitions de page Webflow
-                    // Sinon, simple navigation JS :
                     window.location.href = linkHref; 
                 }, 300); // 300ms = 0.3s
             }
         };
 
-        // On attache le même gestionnaire aux deux événements pour fiabilité maximale
         link.addEventListener('click', linkHandler);
         link.addEventListener('touchend', linkHandler);
     });
