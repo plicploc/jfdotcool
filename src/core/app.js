@@ -13,6 +13,7 @@ import { initHomescrollAnimations } from "../features/homescroll-anim.js";
 import { initCustomCursors } from "../features/custom-cursor.js";
 import "../vendors/smooth.js";
 import "../features/textEffects.js";
+import { setupMenuToggle } from "../features/menu-toggle.js";
 
 
 (function () {
@@ -287,8 +288,13 @@ import "../features/textEffects.js";
     }, "navigation");
   }
 
-  // --- MODIFICATION ---
-  function linkSwiperAndCursors() {
+function mountMenuToggleOnce() {
+    once(() => {
+      try { setupMenuToggle(); } catch (e) { console.warn("[menuToggle] init failed", e); }
+    }, "menuToggle"); 
+}
+
+function linkSwiperAndCursors() {
     try {
       // Lien pour les swipers d'images
       const swiperContainers = document.querySelectorAll('.swiper[data-cursor]');
@@ -341,7 +347,7 @@ import "../features/textEffects.js";
     mountCustomCursorsOnce();
     mountSplineAnimationsOnce();
     mountNavigationOnce();
-    
+    mountMenuToggleOnce();
     linkSwiperAndCursors();
   }
 
