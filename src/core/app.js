@@ -11,6 +11,7 @@ import { initSwiperTestimonials } from "../features/swiper-testimonials.js";
 // --- FIN AJOUT ---
 import { initHomescrollAnimations } from "../features/homescroll-anim.js";
 import { initCustomCursors } from "../features/custom-cursor.js";
+import { initMagnetButtons } from "../features/magnet-button.js";
 import "../vendors/smooth.js";
 import "../features/textEffects.js";
 import { setupMenuToggle } from "../features/menu-toggle.js";
@@ -31,7 +32,11 @@ import { setupMenuToggle } from "../features/menu-toggle.js";
     try { fn(); } catch (e) { console.warn(`[once:${key}]`, e); }
     return true;
   }
-
+  function mountMagnetButtonsOnce() {
+    once(() => {
+      try { initMagnetButtons(); } catch (e) { console.warn("[magnetButtons] init failed", e); }
+    }, "magnetButtons");
+  }
   // ───────────────────────────────────────────────────────────────────────────
   // 3. FONCTIONS D'INITIALISATION POUR CHAQUE FONCTIONNALITÉ
   // ───────────────────────────────────────────────────────────────────────────
@@ -348,6 +353,7 @@ function linkSwiperAndCursors() {
     mountSplineAnimationsOnce();
     mountNavigationOnce();
     mountMenuToggleOnce();
+    mountMagnetButtonsOnce();
     linkSwiperAndCursors();
   }
 
