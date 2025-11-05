@@ -1,7 +1,7 @@
 /**
  * Gère l'ouverture/fermeture du menu burger sur mobile/tablette.
  * Utilise GSAP pour l'animation du bouton croix et gère les classes 'active'.
- * Gère le conflit click/touchend sur iOS.
+ * Gère le conflit click/touchend sur iOS et permet la navigation des liens.
  */
 export function setupMenuToggle() {
     // Sélecteurs des éléments clés
@@ -23,7 +23,7 @@ export function setupMenuToggle() {
         return;
     }
 
-    // Initialisation de l'icône croix (pour être sûr qu'elle est cachée au début)
+    // Initialisation de l'icône croix
     if (window.gsap) {
          gsap.set(iconCross, { rotation: 0, display: 'none' });
     } else {
@@ -32,14 +32,9 @@ export function setupMenuToggle() {
 
 
     /**
-     * Fonction de basculement (toggle) qui contient toute la logique
-     * @param {Event} e - L'objet Event (peut être click ou touchend)
+     * Logique PURE de bascule (ouverture/fermeture sans gestion d'événements)
      */
-    function handleMenuToggle(e) {
-        // 🛑 Solution pour les doubles clics/touchers sur mobile :
-        // Stoppe l'événement de remonter aux parents et d'être interprété ailleurs.
-        e.stopPropagation();
-
+    function toggleMenuState() {
         // 1. Basculer les icônes (Burger <-> Cross)
         const isActive = opener.classList.toggle('is-active');
 
@@ -71,62 +66,65 @@ export function setupMenuToggle() {
         });
     }
 
-
-    // 4. Attacher les écouteurs d'événement
-    
-    // Écouteur standard pour la souris (Desktop)
-    opener.addEventListener('click', handleMenuToggle); 
-
-    // Écouteur tactile pour Mobile/iPad (prioritaire sur 'click' simulé)
-    opener.addEventListener('touchend', function(e) {
-        // Annule l'action par défaut (par exemple, le zoom ou le menu contextuel iOS)
-        e.preventDefault(); 
-        
-        // Stoppe la propagation de l'événement tactile
+    /**
+     * Fonction de basculement (toggle) appelée par le bouton BURGER.
+     * Contient la protection anti-bug mobile.
+     * @param {Event} e - L'objet Event du clic
+     */
+    function handleMenuToggle(e) {
+        // 🛑 Conserver e.stopPropagation() pour le bouton BURGER (protection anti-bug)
         e.stopPropagation(); 
         
-        // Exécute la logique de bascule
+        // La logique pure de bascule
+        toggleMenuState();
+    }
+
+    /**
+     * Fonction pour fermer le menu, appelée par les LIENS.
+     * Ne fait AUCUN e.stopPropagation() ou e.preventDefault().
+     */
+    function closeMenuIfOpen() {
+        const isCurrentlyActive = opener.classList.contains('is-active');
+        if (isCurrentlyActive) {
+            // Appeler la fonction de bascule pour inverser l'état
+            toggleMenuState();
+        }
+    }
+
+
+    // 4. Attacher les écouteurs d'événement pour le bouton BURGER (PROTÉGÉ)
+    // Clic pour Desktop (souris)
+    opener.addEventListener('click', handleMenuToggle); 
+
+    // Toucher pour Mobile/iPad (priorité et protection)
+    opener.addEventListener('touchend', function(e) {
+        e.preventDefault(); 
+        e.stopPropagation(); 
         handleMenuToggle(e); 
     });
     
-
+    
+    // 5. Fermeture automatique du menu après un clic sur un lien (NAVIGATION AUTORISÉE)
     const navbarLinks = document.querySelectorAll('.navbar-link');
 
     navbarLinks.forEach(link => {
+        // Clic pour Desktop (souris)
         link.addEventListener('click', function(e) {
-            // Vérifie si le menu est actuellement ouvert
-            const isCurrentlyActive = opener.classList.contains('is-active');
-
-            if (isCurrentlyActive) {
-                // Si le menu est ouvert, nous appelons la fonction de bascule.
-                // NOTE: Nous ne faisons PAS e.preventDefault() ici, 
-                // car nous voulons que l'action par défaut (la navigation vers le lien) s'exécute.
-                
-                // L'appel à handleMenuToggle sans e.stopPropagation() est suffisant
-                // car l'événement est déjà géré par le lien lui-même.
-                
-                // On passe un objet Event vide ou l'événement actuel
-                // pour satisfaire l'argument de la fonction handleMenuToggle.
-                handleMenuToggle(e); 
-            }
-            
-            // La navigation vers le lien se fera par défaut car nous n'avons pas fait e.preventDefault()
+            // Aucune action sur 'e' pour ne pas bloquer la navigation
+            closeMenuIfOpen(); 
         });
         
-        // Gérer aussi l'événement tactile pour plus de fiabilité sur mobile
+        // Toucher pour Mobile/iPad
         link.addEventListener('touchend', function(e) {
-             const isCurrentlyActive = opener.classList.contains('is-active');
-
-             if (isCurrentlyActive) {
-                 // On doit empêcher l'événement de se propager pour éviter un conflit,
-                 // mais on ne fait pas e.preventDefault() pour laisser le lien naviguer.
-                 e.stopPropagation(); 
-                 
-                 // Exécute la logique de fermeture
-                 handleMenuToggle(e); 
-             }
+             // Nous faisons e.stopPropagation() ici pour éviter que l'événement remonte
+             // et déclenche une logique de fermeture *globale* (si elle existe),
+             // mais nous n'utilisons PAS e.preventDefault() pour laisser la navigation s'opérer.
+             e.stopPropagation(); 
+             
+             closeMenuIfOpen(); 
+             
+             // Le navigateur naviguera vers le href immédiatement après
         });
     });
 
 }
-
