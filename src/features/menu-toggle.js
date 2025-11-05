@@ -90,5 +90,43 @@ export function setupMenuToggle() {
     });
     
 
+    const navbarLinks = document.querySelectorAll('.navbar-link');
+
+    navbarLinks.forEach(link => {
+        link.addEventListener('click', function(e) {
+            // Vérifie si le menu est actuellement ouvert
+            const isCurrentlyActive = opener.classList.contains('is-active');
+
+            if (isCurrentlyActive) {
+                // Si le menu est ouvert, nous appelons la fonction de bascule.
+                // NOTE: Nous ne faisons PAS e.preventDefault() ici, 
+                // car nous voulons que l'action par défaut (la navigation vers le lien) s'exécute.
+                
+                // L'appel à handleMenuToggle sans e.stopPropagation() est suffisant
+                // car l'événement est déjà géré par le lien lui-même.
+                
+                // On passe un objet Event vide ou l'événement actuel
+                // pour satisfaire l'argument de la fonction handleMenuToggle.
+                handleMenuToggle(e); 
+            }
+            
+            // La navigation vers le lien se fera par défaut car nous n'avons pas fait e.preventDefault()
+        });
+        
+        // Gérer aussi l'événement tactile pour plus de fiabilité sur mobile
+        link.addEventListener('touchend', function(e) {
+             const isCurrentlyActive = opener.classList.contains('is-active');
+
+             if (isCurrentlyActive) {
+                 // On doit empêcher l'événement de se propager pour éviter un conflit,
+                 // mais on ne fait pas e.preventDefault() pour laisser le lien naviguer.
+                 e.stopPropagation(); 
+                 
+                 // Exécute la logique de fermeture
+                 handleMenuToggle(e); 
+             }
+        });
+    });
+
 }
 
