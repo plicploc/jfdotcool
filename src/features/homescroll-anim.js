@@ -6,16 +6,47 @@ export function initHomescrollAnimations(splineContainer) {
         return;
     }
 
-    if (!window.gsap || !window.ScrollTrigger || !window.SplitText) {
-        console.warn('GSAP, ScrollTrigger, ou SplitText non disponible.');
+    // Ajout de ScrollToPlugin à la vérification
+    if (!window.gsap || !window.ScrollTrigger || !window.SplitText || !window.ScrollToPlugin) {
+        console.warn('GSAP, ScrollTrigger, SplitText ou ScrollToPlugin non disponible.');
         return;
     }
 
-    gsap.registerPlugin(ScrollTrigger, SplitText);
+    // Enregistrement de ScrollToPlugin
+   // gsap.registerPlugin(ScrollTrigger, SplitText, ScrollToPlugin);
 
     // NOTE : On ne met AUCUNE configuration de scroller ici.
     // Le scrollerProxy configuré dans app.js s'en occupe pour tout le site.
 
+    // --- AJOUT PARTIE 1 : GESTION DES CLICS SUR LES BOUTONS .NEXT ---
+    // Utilisation du sélecteur corrigé : '.cta.second.next'
+    const allSpeechBlocks = document.querySelectorAll('.homespeech-block');
+    allSpeechBlocks.forEach((block, index) => {
+        const nextButton = block.querySelector('.cta.second.next');
+        
+        if (nextButton) {
+            // 1. Trouver le bloc suivant
+            const nextBlock = allSpeechBlocks[index + 1]; 
+            
+            if (nextBlock) {
+                // 2. Ajouter l'écouteur d'événement
+                nextButton.addEventListener('click', (e) => {
+                    e.preventDefault(); // Empêche le lien '#' de fonctionner
+                    
+                    // 3. Lancer l'animation de scroll GSAP
+                    gsap.to(window, {
+                        duration: 1.5, // Durée du scroll
+                        scrollTo: nextBlock, // Cible
+                        ease: 'power2.inOut'
+                    });
+                });
+            }
+        }
+    });
+    // --- FIN AJOUT PARTIE 1 ---
+
+
+    // --- Logique Spline (inchangée) ---
     const canvas = document.createElement('canvas');
     canvas.id = 'spline-home';
     splineContainer.appendChild(canvas);
@@ -25,46 +56,28 @@ export function initHomescrollAnimations(splineContainer) {
     splineApp.load('https://prod.spline.design/8FhyJKbr8T9z1n2j/scene.splinecode').then(() => {
 
         const TARGET_rotation = "00-all-objects"; 
-           const sq01= "sq-01";
-         const sq02= "sq-02";
-         const sq03= "sq-03";
-          const sq04= "sq-04";
-             const sq05= "sq-05";
-             const sq06= "sq-06";
+        const sq01= "sq-01";
+        const sq02= "sq-02";
+        const sq03= "sq-03";
+        const sq04= "sq-04";
+        const sq05= "sq-05";
+        const sq06= "sq-06";
         
         const groupObject = splineApp.findObjectByName(TARGET_rotation);
         
-        function seq01on() { 
-            //intro
-            splineApp.emitEvent("mouseDown", sq01);
-        
-        }
+        function seq01on() { splineApp.emitEvent("mouseDown", sq01); }
         function seq01off() {}
-        function seq02on() { 
-            splineApp.emitEvent("mouseDown", sq02);
-    }
+        function seq02on() { splineApp.emitEvent("mouseDown", sq02); }
         function seq02off() {}
-        function seq03on() { 
-            //but
-            splineApp.emitEvent("mouseDown", sq03);
-            
-
-         }
+        function seq03on() { splineApp.emitEvent("mouseDown", sq03); }
         function seq03off() {}
-        function seq04on() {
-           
-
-               splineApp.emitEvent("mouseDown", sq04);
-
-
-         }
+        function seq04on() { splineApp.emitEvent("mouseDown", sq04); }
         function seq04off() {}
         function seq05on() { splineApp.emitEvent("mouseDown", sq05); }
         function seq05off() {}
         function seq06on() { splineApp.emitEvent("mouseDown", sq06); }
         function seq06off() {}
 
-        // Le trigger pour le pinning et la rotation reste inchangé.
         if (groupObject) {
             gsap.to(groupObject.rotation, {
                 scrollTrigger: {
@@ -78,7 +91,10 @@ export function initHomescrollAnimations(splineContainer) {
                 ease: 'none'
             });
         }
+        // --- Fin Logique Spline ---
 
+
+        // --- Logique d'animation des sections ---
         const homespeechBlocks = document.querySelectorAll('.homespeech-block[id]');
         homespeechBlocks.forEach(block => {
             const blockId = block.id;
@@ -108,6 +124,7 @@ export function initHomescrollAnimations(splineContainer) {
             });
 
             if (blockId === 'sp01') {
+                // ... (Logique sp01 inchangée) ...
                 const titleContainer = block.querySelector('.title-4xl');
                 if (titleContainer) {
                     const part1 = titleContainer.querySelector('.hometitle-part1');
@@ -136,6 +153,7 @@ export function initHomescrollAnimations(splineContainer) {
                     }
                 }
             } else { 
+                // ... (Logique pour titres et sous-sections inchangée) ...
                 const mainTitle = block.querySelector('.home-title-reveal');
                 if (mainTitle && mainTitle.textContent.trim() !== '') {
                     const splitTitle = new SplitText(mainTitle, { type: "words, chars" });
@@ -174,9 +192,27 @@ export function initHomescrollAnimations(splineContainer) {
                     }
                 });
             }
+
+            // --- AJOUT PARTIE 2 : ANIMATION D'APPARITION DU BOUTON ---
+            // Utilisation du sélecteur corrigé : '.cta.second.next'
+            const nextButton = block.querySelector('.cta.second.next');
+            if (nextButton) {
+                // On retire la classe .hidden pour que GSAP puisse l'animer
+                nextButton.classList.remove('hidden');
+                
+                // On ajoute son animation à la toute fin de la timeline ('>')
+                tl.from(nextButton, {
+                    duration: 0.5,
+                    opacity: 0,
+                    y: 10,
+                    ease: 'power1.out'
+                }, '>'); // '>' signifie "à la fin de la timeline existante"
+            }
+            // --- FIN AJOUT PARTIE 2 ---
+
         });
         
-        // --- SUPPRESSION ---
+        // --- SUPPRESSION --- (inchangé)
         // Le ScrollTrigger qui gérait le snap a été retiré pour éviter les bugs.
         // ScrollTrigger.create({ ... });
 
@@ -187,4 +223,3 @@ export function initHomescrollAnimations(splineContainer) {
 
     });
 }
-
