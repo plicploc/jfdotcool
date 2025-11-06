@@ -6,44 +6,41 @@ export function initHomescrollAnimations(splineContainer) {
         return;
     }
 
-    // Ajout de ScrollToPlugin à la vérification
+    // On s'assure que ScrollToPlugin est bien là, comme discuté
     if (!window.gsap || !window.ScrollTrigger || !window.SplitText || !window.ScrollToPlugin) {
         console.warn('GSAP, ScrollTrigger, SplitText ou ScrollToPlugin non disponible.');
         return;
     }
 
-    // Enregistrement de ScrollToPlugin
-   // gsap.registerPlugin(ScrollTrigger, SplitText, ScrollToPlugin);
+    // Enregistrement des plugins, y compris ScrollToPlugin qui est requis
+    gsap.registerPlugin(ScrollTrigger, SplitText, ScrollToPlugin);
 
     // NOTE : On ne met AUCUNE configuration de scroller ici.
     // Le scrollerProxy configuré dans app.js s'en occupe pour tout le site.
 
-    // --- AJOUT PARTIE 1 : GESTION DES CLICS SUR LES BOUTONS .NEXT ---
-    // Utilisation du sélecteur corrigé : '.cta.second.next'
+    // --- PARTIE 1 : GESTION DES CLICS (INCHANGÉE) ---
     const allSpeechBlocks = document.querySelectorAll('.homespeech-block');
     allSpeechBlocks.forEach((block, index) => {
         const nextButton = block.querySelector('.cta.second.next');
         
         if (nextButton) {
-            // 1. Trouver le bloc suivant
             const nextBlock = allSpeechBlocks[index + 1]; 
             
             if (nextBlock) {
-                // 2. Ajouter l'écouteur d'événement
                 nextButton.addEventListener('click', (e) => {
-                    e.preventDefault(); // Empêche le lien '#' de fonctionner
+                    e.preventDefault(); 
                     
-                    // 3. Lancer l'animation de scroll GSAP
+                    // On utilise ScrollToPlugin
                     gsap.to(window, {
-                        duration: 1.5, // Durée du scroll
-                        scrollTo: nextBlock, // Cible
+                        duration: 1.5,
+                        scrollTo: nextBlock,
                         ease: 'power2.inOut'
                     });
                 });
             }
         }
     });
-    // --- FIN AJOUT PARTIE 1 ---
+    // --- FIN PARTIE 1 ---
 
 
     // --- Logique Spline (inchangée) ---
@@ -54,7 +51,7 @@ export function initHomescrollAnimations(splineContainer) {
     const splineApp = new Application(canvas);
     
     splineApp.load('https://prod.spline.design/8FhyJKbr8T9z1n2j/scene.splinecode').then(() => {
-
+        // ... (Toute votre logique d'objets Spline, sq01, sq02, etc. reste ici) ...
         const TARGET_rotation = "00-all-objects"; 
         const sq01= "sq-01";
         const sq02= "sq-02";
@@ -123,6 +120,9 @@ export function initHomescrollAnimations(splineContainer) {
                 }
             });
 
+            // On sélectionne le bouton .next de CE bloc
+            const nextButton = block.querySelector('.cta.second.next');
+
             if (blockId === 'sp01') {
                 // ... (Logique sp01 inchangée) ...
                 const titleContainer = block.querySelector('.title-4xl');
@@ -130,6 +130,7 @@ export function initHomescrollAnimations(splineContainer) {
                     const part1 = titleContainer.querySelector('.hometitle-part1');
                     const part2 = titleContainer.querySelector('.hometitle-part2');
                     const part3 = titleContainer.querySelector('.hometitle-part3');
+                    // ... (vos autres 'parts')
                     const part4 = titleContainer.querySelector('.hometitle-part4');
                     const part5 = titleContainer.querySelector('.hometitle-part5');
                     const soul = titleContainer.querySelector('.soul');
@@ -145,15 +146,24 @@ export function initHomescrollAnimations(splineContainer) {
 
                         tl.to(part3, {
                             duration: 0.05, opacity: 1,  ease: 'none'
-                        }, "+=0.5");
+                        }, "+=0.5"); // Le titre principal finit ici
 
+                        // --- MODIFICATION PARTIE 2 (POUR SP01) ---
+                        // On fait apparaître le bouton après le titre (part3)
+                        if (nextButton) {
+                            nextButton.classList.remove('hidden');
+                            tl.from(nextButton, {
+                                duration: 0.5, opacity: 0, y: 10, ease: 'power1.out'
+                            }, '>'); // Positionné à la fin (après part3)
+                        }
+                        
                         tl.to([part4, part5, soul, bulletEnd], {
                             duration: 0.05, opacity: 1,  ease: 'none', stagger: 0.15
-                        }, "+=1");
+                        }, "+=0.5"); // Le reste des anims vient après
                     }
                 }
             } else { 
-                // ... (Logique pour titres et sous-sections inchangée) ...
+                // --- Logique pour sp02 à sp06 ---
                 const mainTitle = block.querySelector('.home-title-reveal');
                 if (mainTitle && mainTitle.textContent.trim() !== '') {
                     const splitTitle = new SplitText(mainTitle, { type: "words, chars" });
@@ -161,15 +171,33 @@ export function initHomescrollAnimations(splineContainer) {
                     gsap.set(splitTitle.chars, { opacity: 0 });
                     tl.to(splitTitle.chars, {
                         duration: 0.05, opacity: 1, ease: 'none', stagger: { from: "start", each: 0.02 }
-                    }, 0.3);
+                    }, 0.3); // Le titre principal finit ici
                 }
 
+                // --- MODIFICATION PARTIE 2 (POUR SP02-06) ---
+                // On place l'animation du bouton ici.
+                // Le 'position' sera '>', relatif à l'animation du titre (mainTitle)
+                // Il apparaîtra donc en même temps que la première sous-section.
+                if (nextButton) {
+                    nextButton.classList.remove('hidden');
+                    tl.from(nextButton, {
+                        duration: 0.5,
+                        opacity: 0,
+                        y: 10,
+                        ease: 'power1.out'
+                    }, '>'); // Positionné juste après l'animation du titre
+                }
+
+                // --- Logique des sous-sections (inchangée) ---
                 const subsections = block.querySelectorAll('.subsection-home');
                 subsections.forEach((subsection, index) => {
                     const subTitle = subsection.querySelector('h2');
                     const headings = subsection.querySelectorAll('h3');
                     const paragraphs = subsection.querySelectorAll('p');
-                    const position = index === 0 ? ">" : "+=0.8";
+                    
+                    // Sa position '>' (pour index 0) sera relative au titre,
+                    // tout comme le bouton .next
+                    const position = index === 0 ? ">" : "+=0.8"; 
 
                     if (subTitle && subTitle.textContent.trim() !== '') {
                         const splitSubTitle = new SplitText(subTitle, { type: "words, chars" });
@@ -193,30 +221,11 @@ export function initHomescrollAnimations(splineContainer) {
                 });
             }
 
-            // --- AJOUT PARTIE 2 : ANIMATION D'APPARITION DU BOUTON ---
-            // Utilisation du sélecteur corrigé : '.cta.second.next'
-            const nextButton = block.querySelector('.cta.second.next');
-            if (nextButton) {
-                // On retire la classe .hidden pour que GSAP puisse l'animer
-                nextButton.classList.remove('hidden');
-                
-                // On ajoute son animation à la toute fin de la timeline ('>')
-                tl.from(nextButton, {
-                    duration: 0.5,
-                    opacity: 0,
-                    y: 10,
-                    ease: 'power1.out'
-                }, '>'); // '>' signifie "à la fin de la timeline existante"
-            }
-            // --- FIN AJOUT PARTIE 2 ---
-
+            // L'ancien "AJOUT PARTIE 2" qui était ici a été supprimé
+            // car il est maintenant géré DANS les conditions if/else.
         });
         
-        // --- SUPPRESSION --- (inchangé)
-        // Le ScrollTrigger qui gérait le snap a été retiré pour éviter les bugs.
-        // ScrollTrigger.create({ ... });
-
-        // On rafraîchit les positions une fois que tout est prêt.
+        // --- Rafraîchissement (inchangé) ---
         setTimeout(() => {
             ScrollTrigger.refresh();
         }, 500);
