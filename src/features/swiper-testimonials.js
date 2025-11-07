@@ -53,6 +53,7 @@ function detectRealMove(swiper, threshold = 0.5) {
 /**
  * Vérifie le nombre de slides réelles et masque la navigation si <= 1.
  * Désactive également Swiper si <= 1.
+ * Gère l'attribut data-cursor si > 2.
  */
 function checkSlideCountAndToggleNav(swiper) {
   if (!swiper || swiper.destroyed) return;
@@ -60,6 +61,7 @@ function checkSlideCountAndToggleNav(swiper) {
   // Compte les slides réelles (excluant les duplicata de la boucle)
   const realSlideCount = swiper.slides.filter(slide => !slide.classList.contains('swiper-slide-duplicate')).length;
   const navigationEl = swiper.el.querySelector('.swiper-testi-navigation');
+  const containerEl = swiper.el; // Le conteneur .swiper-testi
 
   if (navigationEl) {
     if (realSlideCount <= 1) {
@@ -75,6 +77,15 @@ function checkSlideCountAndToggleNav(swiper) {
   } else {
     swiper.enable();
   }
+
+  // --- AJOUT : LOGIQUE DU CURSEUR ---
+  // "plus de deux" = 3 ou plus
+  if (realSlideCount > 2) {
+    containerEl.setAttribute('data-cursor', 'drag-slide'); // Ajoute l'attribut
+  } else {
+    containerEl.removeAttribute('data-cursor'); // Retire l'attribut
+  }
+  // --- FIN AJOUT ---
 }
 // --- FIN NOUVELLE FONCTION ---
 
@@ -199,6 +210,14 @@ export function initSwiperTestimonials(root = document) {
     if (navigationEl && slideItems.length <= 1) {
        navigationEl.style.display = 'none';
     }
+    
+    // --- AJOUT : LOGIQUE CURSEUR (PRE-INIT) ---
+    // "plus de deux" = 3 ou plus
+    if (slideItems.length > 2) {
+      containerEl.setAttribute('data-cursor', 'drag-slide');
+    } else {
+      containerEl.removeAttribute('data-cursor');
+    }
     // --- FIN AJOUT ---
 
     const targetEl = containerEl; 
@@ -234,6 +253,10 @@ export function destroySwiperTestimonials(root = document) {
     if (navigationEl) {
       navigationEl.style.display = '';
     }
+
+    // --- AJOUT : Nettoyage du curseur ---
+    containerEl.removeAttribute('data-cursor');
+    // --- FIN AJOUT ---
 
     clearTimeout(containerEl.__resizeTO);
     containerEl.removeAttribute('data-initialized-testi');
