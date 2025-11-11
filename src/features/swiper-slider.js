@@ -14,9 +14,9 @@ function fillSlideCaptionFromAlt(slide) {
   if (img && typeof img.getAttribute === 'function') {
     altText = (img.getAttribute('alt') || '').trim();
   }
-  if (altText) {
-    captionEl.textContent = altText;
-  }
+  
+
+  captionEl.textContent = altText;
 }
 
 function getActiveCaptionEl(containerEl) {
@@ -29,7 +29,13 @@ function hideAllCaptions(containerEl) {
 
 function showActiveCaption(containerEl) {
   const el = getActiveCaptionEl(containerEl);
-  if (el) el.classList.remove('info-hidden');
+  if (el) {
+    if (el.textContent && el.textContent.trim().length > 0) {
+      el.classList.remove('info-hidden');
+    } else {
+      el.classList.add('info-hidden');
+    }
+  }
 }
 
 function hideActiveCaption(containerEl) {
