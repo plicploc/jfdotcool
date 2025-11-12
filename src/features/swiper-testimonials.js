@@ -53,7 +53,7 @@ function detectRealMove(swiper, threshold = 0.5) {
 /**
  * Vérifie le nombre de slides réelles et masque la navigation si <= 1.
  * Désactive également Swiper si <= 1.
- * Gère l'attribut data-cursor si > 2.
+ * Gère l'attribut data-cursor si > 1.
  */
 function checkSlideCountAndToggleNav(swiper) {
   if (!swiper || swiper.destroyed) return;
@@ -78,10 +78,10 @@ function checkSlideCountAndToggleNav(swiper) {
     swiper.enable();
   }
 
-  // --- AJOUT : LOGIQUE DU CURSEUR ---
-  // "plus de deux" = 3 ou plus
-  if (realSlideCount > 2) {
-    containerEl.setAttribute('data-cursor', 'drag-slide'); // Ajoute l'attribut
+  // --- AJOUT : LOGIQUE DU CURSEUR (MODIFIÉE) ---
+  // "plus d'un" = 2 ou plus
+  if (realSlideCount > 1) { // --- MODIFIÉ --- (était > 2)
+    containerEl.setAttribute('data-cursor', 'drag'); // --- MODIFIÉ --- (était 'drag-slide')
   } else {
     containerEl.removeAttribute('data-cursor'); // Retire l'attribut
   }
@@ -211,10 +211,10 @@ export function initSwiperTestimonials(root = document) {
        navigationEl.style.display = 'none';
     }
     
-    // --- AJOUT : LOGIQUE CURSEUR (PRE-INIT) ---
-    // "plus de deux" = 3 ou plus
-    if (slideItems.length > 2) {
-      containerEl.setAttribute('data-cursor', 'drag-slide');
+    // --- AJOUT : LOGIQUE CURSEUR (PRE-INIT) (MODIFIÉE) ---
+    // "plus d'un" = 2 ou plus
+    if (slideItems.length > 1) { // --- MODIFIÉ --- (était > 2)
+      containerEl.setAttribute('data-cursor', 'drag'); // --- MODIFIÉ --- (était 'drag-slide')
     } else {
       containerEl.removeAttribute('data-cursor');
     }
