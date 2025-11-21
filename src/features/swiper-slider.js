@@ -3,6 +3,9 @@
  * Swiper slider feature
  */
 
+// Importe les fonctions d'intégration vidéo
+import { embedVideo, destroyVideo, getVideoIdFromSlide } from './slider-embed-video.js';
+
 /**
  * Récupère le texte 'alt' de l'image de la diapositive et l'insère
  * comme contenu texte dans l'élément de légende (.txt-slide).
@@ -10,59 +13,44 @@
  */
 function fillSlideCaptionFromAlt(slide) {
   if (!slide) return;
-  // 1. Cherche l'élément de légende (.txt-slide) dans la diapositive
   const captionEl = slide.querySelector('.txt-slide');
   if (!captionEl) return;
-  
-  // 2. Cherche l'élément <img> à l'intérieur de la diapositive
   const img =
     slide.querySelector('.swiper-slide-image img') ||
     slide.querySelector('img.swiper-slide-image') ||
     slide.querySelector('.swiper-slide-image');
-    
   let altText = '';
-  // 3. Récupère la valeur de l'attribut 'alt' de l'image
   if (img && typeof img.getAttribute === 'function') {
+    // 3. Récupère la valeur de l'attribut 'alt' de l'image
     altText = (img.getAttribute('alt') || '').trim();
   }
   
-  // 4. Définit le contenu de l'élément de légende avec le texte 'alt'
+  // 4. Définit le contenu de l'élément de légende avec le texte 'alt'. 
+  // NOTE: Même si l'alt contient "video:...", il est utilisé ici pour la légende texte.
+  // Cependant, nous pourrions vouloir le nettoyer pour la légende, mais pour l'instant, 
+  // nous laissons l'alt complet pour la compatibilité avec la légende d'origine.
   captionEl.textContent = altText;
 }
 
-/**
- * Récupère l'élément de légende (.txt-slide) de la diapositive ACTIVE.
- */
 function getActiveCaptionEl(containerEl) {
   return containerEl.querySelector('.swiper-slide.swiper-slide-active .txt-slide');
 }
 
-/**
- * Cache toutes les légendes (.txt-slide) en ajoutant la classe 'info-hidden'.
- */
 function hideAllCaptions(containerEl) {
   containerEl.querySelectorAll('.swiper-slide .txt-slide').forEach(el => el.classList.add('info-hidden'));
 }
 
-/**
- * Affiche la légende (.txt-slide) de la diapositive active SI elle contient du texte.
- */
 function showActiveCaption(containerEl) {
   const el = getActiveCaptionEl(containerEl);
   if (el) {
     if (el.textContent && el.textContent.trim().length > 0) {
-      // Si la légende n'est pas vide (elle a été remplie par fillSlideCaptionFromAlt), on l'affiche
       el.classList.remove('info-hidden');
     } else {
-      // Sinon, on s'assure qu'elle est cachée
       el.classList.add('info-hidden');
     }
   }
 }
 
-/**
- * Cache la légende (.txt-slide) de la diapositive active.
- */
 function hideActiveCaption(containerEl) {
   const el = getActiveCaptionEl(containerEl);
   if (el) el.classList.add('info-hidden');
@@ -73,9 +61,6 @@ function clearCaptionTimers(containerEl) {
   if (containerEl.__activityTO)    { clearTimeout(containerEl.__activityTO);    containerEl.__activityTO = null; }
 }
 
-/**
- * Planifie le masquage automatique de la légende après un délai.
- */
 function scheduleAutoHide(containerEl, delay = 3000) {
   if (containerEl.__captionHideTO) clearTimeout(containerEl.__captionHideTO);
   containerEl.__captionHideTO = setTimeout(() => {
@@ -93,11 +78,14 @@ function getNativeStateForSlide(slide) {
   return 'inactive';
 }
 
-/**
- * Met à jour les états CSS des diapositives et gère les légendes.
- */
 function updateSlideStates(swiper, moving = false) {
+  let slideIndex = 0;
   swiper.slides.forEach((slide) => {
+    // Assure un ID unique pour l'intégration/désintégration de la vidéo
+    if (!slide.id) {
+        slide.id = `swiper-slide-${swiper.el.dataset.swiperId || 'default'}-${slideIndex++}`;
+    }
+
     const state = getNativeStateForSlide(slide);
     slide.classList.remove('is-active', 'is-prev', 'is-next', 'is-visible', 'is-inactive');
     slide.classList.add(
@@ -106,7 +94,7 @@ function updateSlideStates(swiper, moving = false) {
       state === 'next'     ? 'is-next'     :
       state === 'visible'  ? 'is-visible'  : 'inactive'
     );
-    // **Appel clé** : Remplissage de la légende (.txt-slide) avec le texte 'alt'
+    // Remplissage de la légende (.txt-slide) avec le texte 'alt'
     fillSlideCaptionFromAlt(slide);
     const cap = slide.querySelector('.txt-slide');
     if (cap) {
@@ -146,11 +134,9 @@ function buildOptions(containerEl) {
   function attachPointerActivity() {
     if (containerEl.__pointerHandlerAttached) return;
     const onPointerMove = () => {
-      // Montre la légende lors de l'activité du pointeur
       showActiveCaption(containerEl);
       if (containerEl.__captionHideTO) { clearTimeout(containerEl.__captionHideTO); containerEl.__captionHideTO = null; }
       if (containerEl.__activityTO) clearTimeout(containerEl.__activityTO);
-      // Planifie le masquage de la légende après 3 secondes d'inactivité
       containerEl.__activityTO = setTimeout(() => {
         hideActiveCaption(containerEl);
         containerEl.__activityTO = null;
@@ -191,48 +177,58 @@ function buildOptions(containerEl) {
         markBoot(swiper);
         containerEl.classList.remove('is-moving');
         hideAllCaptions(containerEl);
-        // Assure que les légendes sont remplies et que l'état initial est défini
         updateSlideStates(swiper, false);
-        // Affiche la légende de la première diapositive
         showActiveCaption(containerEl);
-        // Planifie le masquage auto initial (15s)
         scheduleAutoHide(containerEl, 15000);
         attachPointerActivity();
+        
+        // ** Vidéo **: Tente de charger la vidéo sur la slide initiale active
+        const activeSlide = swiper.slides[swiper.activeIndex];
+        const videoId = getVideoIdFromSlide(activeSlide);
+        if (videoId) {
+            embedVideo(activeSlide, videoId);
+        }
       },
       slideChangeTransitionStart(swiper) {
         if (isBooting(swiper) && !swiper.__didRealMove) return;
         containerEl.classList.add('is-moving');
         clearCaptionTimers(containerEl);
         hideAllCaptions(containerEl);
-        // Mise à jour des états, inclut le remplissage des légendes
         updateSlideStates(swiper, true);
+
+        // ** Vidéo **: Désintègre la vidéo de l'ancienne slide active dès le début du mouvement
+        const previousSlide = swiper.slides[swiper.previousIndex];
+        if (getVideoIdFromSlide(previousSlide)) {
+             destroyVideo(previousSlide);
+        }
       },
       slideChangeTransitionEnd(swiper) {
         containerEl.classList.remove('is-moving');
-        // Mise à jour finale des états
         updateSlideStates(swiper, false);
         hideAllCaptions(containerEl);
-        // Affiche la légende de la nouvelle diapositive active
         showActiveCaption(containerEl);
-        // Planifie le masquage auto après transition (3s)
         scheduleAutoHide(containerEl, 3000);
+
+        // ** Vidéo **: Intègre la vidéo dans la nouvelle slide active APRÈS la fin de la transition
+        const activeSlide = swiper.slides[swiper.activeIndex];
+        const videoId = getVideoIdFromSlide(activeSlide);
+        if (videoId) {
+            embedVideo(activeSlide, videoId);
+        }
       },
       setTranslate(swiper) {
        if (containerEl.__resizing) return;
         if (!detectRealMove(swiper)) return;
         if (isBooting(swiper)) return;
         containerEl.classList.add('is-moving');
-        // Mise à jour des états pendant le mouvement
         updateSlideStates(swiper, true);
       },
       transitionEnd(swiper) {
         containerEl.classList.remove('is-moving');
-        // Mise à jour des états après transition
         updateSlideStates(swiper, false);
       },
      update(swiper) {
         containerEl.classList.remove('is-moving');
-        // Mise à jour des états lors de l'update
         updateSlideStates(swiper, false);
         hideAllCaptions(containerEl);
         showActiveCaption(containerEl);
@@ -241,7 +237,6 @@ function buildOptions(containerEl) {
         containerEl.__resizing = true;
         clearCaptionTimers(containerEl);
         containerEl.classList.remove('is-moving');
-        // Mise à jour des états lors du redimensionnement
         updateSlideStates(swiper, false);
         hideAllCaptions(containerEl);
         showActiveCaption(containerEl);
@@ -249,7 +244,6 @@ function buildOptions(containerEl) {
         containerEl.__resizeTO = setTimeout(() => {
           containerEl.__resizing = false;
           containerEl.classList.remove('is-moving');
-          // Mise à jour finale après le délai de redimensionnement
           updateSlideStates(swiper, false);
           hideAllCaptions(containerEl);
           showActiveCaption(containerEl);
@@ -261,6 +255,9 @@ function buildOptions(containerEl) {
         clearTimeout(containerEl.__resizeTO);
         containerEl.__resizeTO = null;
         containerEl.__resizing = false;
+
+        // ** Vidéo **: Détruit la vidéo de toutes les slides lors de la destruction du swiper
+        swiper.slides.forEach(slide => destroyVideo(slide));
       }
     }
   };
@@ -281,9 +278,12 @@ export function initSwiperSliders(root = document) {
   const containers = Array.from(root.querySelectorAll('.swiper:not(.swiper-testi)'))
     .filter(Boolean); // Filtre au cas où
 
-  containers.forEach(containerEl => {
+  containers.forEach((containerEl, index) => {
     if (containerEl.hasAttribute('data-initialized')) return;
     
+    // Ajoute un ID pour gérer les vidéos dans un contexte multi-swiper
+    containerEl.dataset.swiperId = index;
+
     // VÉRIFICATION: On s'assure que c'est bien un slider d'images
     // Il doit contenir '.swiper-images' pour être valide
     const imagesEl = containerEl.querySelector('.swiper-images');
@@ -316,7 +316,8 @@ export function destroySwiperSliders(root = document) {
   containers.forEach(containerEl => {
     const inst = containerEl._swiper;
     if (inst && typeof inst.destroy === 'function') {
-      inst.destroy(true, true);
+      // Le hook beforeDestroy s'occupe de détruire les vidéos
+      inst.destroy(true, true); 
     }
     
     // Nettoyage des timers et écouteurs
