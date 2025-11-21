@@ -47,7 +47,7 @@ async function embedVideo(slideElement, videoId) {
   const videoContainer = document.createElement('div');
   videoContainer.id = videoContainerId;
   // Les classes 'w-full h-full absolute top-0 left-0' assurent que le conteneur prend la taille de la slide.
-  videoContainer.classList.add('youtube-embed-container', 'w-full', 'h-full', 'absolute', 'top-0', 'left-0');
+  videoContainer.classList.add('youtube-embed-container', 'w-full', 'h-full', 'absolute', 'top-0', 'left-0', 'overflow-hidden'); // Ajout de overflow-hidden pour masquer le débordement
   
   // Masque l'image (thumbnail) et insère le conteneur vidéo
   const imageWrapper = slideElement.querySelector('.swiper-slide-image');
@@ -89,18 +89,18 @@ async function embedVideo(slideElement, videoId) {
             iframe.style.width = '100%';
             iframe.style.height = '100%';
             
-            // FIX DÉFINITIF POUR L'INTERFACE (mode non-interactif)
-            iframe.style.pointerEvents = 'none';
+            // ** NOUVEAU FIX BRANDING **: Décalage pour masquer le logo et l'interface de survol
+            iframe.style.width = '300%';
+            iframe.style.height = '100%'; // Déjà 100%, mais à confirmer
+            iframe.style.marginLeft = '-100%';
+            iframe.style.pointerEvents = 'none'; // FIX DÉFINITIF POUR L'INTERFACE (mode non-interactif)
 
             // ** FIX iOS/Safari **: Ajoute l'attribut playsinline à l'iframe directement
             iframe.setAttribute('playsinline', '1');
         }
         
-        // ** NOUVEAU FIX iOS/Safari **: Forcer la lecture avec un court délai
-        // Souvent, un setTimeout permet de contourner le blocage initial d'iOS.
+        // ** FIX iOS/Safari **: Forcer la lecture avec un court délai
         event.target.mute(); 
-        
-        // Met en place le mode boucle explicitement
         event.target.setLoop(true); 
 
         setTimeout(() => {
@@ -212,7 +212,7 @@ function initBackgroundVideo(targetBlock) {
     
     // Le conteneur doit être sous les autres éléments du bloc
     videoContainer.style.zIndex = '-1'; 
-    videoContainer.classList.add('youtube-background-embed', 'w-full', 'h-full', 'absolute', 'top-0', 'left-0');
+    videoContainer.classList.add('youtube-background-embed', 'w-full', 'h-full', 'absolute', 'top-0', 'left-0', 'overflow-hidden');
     
     targetBlock.prepend(videoContainer); // Ajout en début de bloc pour qu'il soit derrière
 
@@ -237,8 +237,12 @@ function initBackgroundVideo(targetBlock) {
                         iframe.removeAttribute('height');
                         iframe.style.width = '100%';
                         iframe.style.height = '100%';
-                        // ** IMPORTANT **: Rendre la vidéo non-interactive
-                        iframe.style.pointerEvents = 'none'; 
+                        
+                        // ** NOUVEAU FIX BRANDING **: Décalage pour masquer le logo
+                        iframe.style.width = '300%';
+                        iframe.style.height = '100%';
+                        iframe.style.marginLeft = '-100%';
+                        iframe.style.pointerEvents = 'none'; // Rendre non-interactive
 
                         // ** FIX iOS/Safari **
                         iframe.setAttribute('playsinline', '1');
