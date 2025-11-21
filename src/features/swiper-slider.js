@@ -2,42 +2,67 @@
  * file: features/swiper-slider.js
  * Swiper slider feature
  */
+
+/**
+ * Récupère le texte 'alt' de l'image de la diapositive et l'insère
+ * comme contenu texte dans l'élément de légende (.txt-slide).
+ * @param {HTMLElement} slide L'élément de la diapositive Swiper.
+ */
 function fillSlideCaptionFromAlt(slide) {
   if (!slide) return;
+  // 1. Cherche l'élément de légende (.txt-slide) dans la diapositive
   const captionEl = slide.querySelector('.txt-slide');
   if (!captionEl) return;
+  
+  // 2. Cherche l'élément <img> à l'intérieur de la diapositive
   const img =
     slide.querySelector('.swiper-slide-image img') ||
     slide.querySelector('img.swiper-slide-image') ||
     slide.querySelector('.swiper-slide-image');
+    
   let altText = '';
+  // 3. Récupère la valeur de l'attribut 'alt' de l'image
   if (img && typeof img.getAttribute === 'function') {
     altText = (img.getAttribute('alt') || '').trim();
   }
   
-
+  // 4. Définit le contenu de l'élément de légende avec le texte 'alt'
   captionEl.textContent = altText;
 }
 
+/**
+ * Récupère l'élément de légende (.txt-slide) de la diapositive ACTIVE.
+ */
 function getActiveCaptionEl(containerEl) {
   return containerEl.querySelector('.swiper-slide.swiper-slide-active .txt-slide');
 }
 
+/**
+ * Cache toutes les légendes (.txt-slide) en ajoutant la classe 'info-hidden'.
+ */
 function hideAllCaptions(containerEl) {
   containerEl.querySelectorAll('.swiper-slide .txt-slide').forEach(el => el.classList.add('info-hidden'));
 }
 
+/**
+ * Affiche la légende (.txt-slide) de la diapositive active SI elle contient du texte.
+ */
 function showActiveCaption(containerEl) {
   const el = getActiveCaptionEl(containerEl);
   if (el) {
     if (el.textContent && el.textContent.trim().length > 0) {
+      // Si la légende n'est pas vide (elle a été remplie par fillSlideCaptionFromAlt), on l'affiche
       el.classList.remove('info-hidden');
     } else {
+      // Sinon, on s'assure qu'elle est cachée
       el.classList.add('info-hidden');
     }
   }
 }
 
+/**
+ * Cache la légende (.txt-slide) de la diapositive active.
+ */
 function hideActiveCaption(containerEl) {
   const el = getActiveCaptionEl(containerEl);
   if (el) el.classList.add('info-hidden');
@@ -48,6 +73,9 @@ function clearCaptionTimers(containerEl) {
   if (containerEl.__activityTO)    { clearTimeout(containerEl.__activityTO);    containerEl.__activityTO = null; }
 }
 
+/**
+ * Planifie le masquage automatique de la légende après un délai.
+ */
 function scheduleAutoHide(containerEl, delay = 3000) {
   if (containerEl.__captionHideTO) clearTimeout(containerEl.__captionHideTO);
   containerEl.__captionHideTO = setTimeout(() => {
@@ -65,6 +93,9 @@ function getNativeStateForSlide(slide) {
   return 'inactive';
 }
 
+/**
+ * Met à jour les états CSS des diapositives et gère les légendes.
+ */
 function updateSlideStates(swiper, moving = false) {
   swiper.slides.forEach((slide) => {
     const state = getNativeStateForSlide(slide);
@@ -75,6 +106,7 @@ function updateSlideStates(swiper, moving = false) {
       state === 'next'     ? 'is-next'     :
       state === 'visible'  ? 'is-visible'  : 'inactive'
     );
+    // **Appel clé** : Remplissage de la légende (.txt-slide) avec le texte 'alt'
     fillSlideCaptionFromAlt(slide);
     const cap = slide.querySelector('.txt-slide');
     if (cap) {
@@ -114,9 +146,11 @@ function buildOptions(containerEl) {
   function attachPointerActivity() {
     if (containerEl.__pointerHandlerAttached) return;
     const onPointerMove = () => {
+      // Montre la légende lors de l'activité du pointeur
       showActiveCaption(containerEl);
       if (containerEl.__captionHideTO) { clearTimeout(containerEl.__captionHideTO); containerEl.__captionHideTO = null; }
       if (containerEl.__activityTO) clearTimeout(containerEl.__activityTO);
+      // Planifie le masquage de la légende après 3 secondes d'inactivité
       containerEl.__activityTO = setTimeout(() => {
         hideActiveCaption(containerEl);
         containerEl.__activityTO = null;
@@ -157,8 +191,11 @@ function buildOptions(containerEl) {
         markBoot(swiper);
         containerEl.classList.remove('is-moving');
         hideAllCaptions(containerEl);
+        // Assure que les légendes sont remplies et que l'état initial est défini
         updateSlideStates(swiper, false);
+        // Affiche la légende de la première diapositive
         showActiveCaption(containerEl);
+        // Planifie le masquage auto initial (15s)
         scheduleAutoHide(containerEl, 15000);
         attachPointerActivity();
       },
@@ -167,13 +204,17 @@ function buildOptions(containerEl) {
         containerEl.classList.add('is-moving');
         clearCaptionTimers(containerEl);
         hideAllCaptions(containerEl);
+        // Mise à jour des états, inclut le remplissage des légendes
         updateSlideStates(swiper, true);
       },
       slideChangeTransitionEnd(swiper) {
         containerEl.classList.remove('is-moving');
+        // Mise à jour finale des états
         updateSlideStates(swiper, false);
         hideAllCaptions(containerEl);
+        // Affiche la légende de la nouvelle diapositive active
         showActiveCaption(containerEl);
+        // Planifie le masquage auto après transition (3s)
         scheduleAutoHide(containerEl, 3000);
       },
       setTranslate(swiper) {
@@ -181,14 +222,17 @@ function buildOptions(containerEl) {
         if (!detectRealMove(swiper)) return;
         if (isBooting(swiper)) return;
         containerEl.classList.add('is-moving');
+        // Mise à jour des états pendant le mouvement
         updateSlideStates(swiper, true);
       },
       transitionEnd(swiper) {
         containerEl.classList.remove('is-moving');
+        // Mise à jour des états après transition
         updateSlideStates(swiper, false);
       },
      update(swiper) {
         containerEl.classList.remove('is-moving');
+        // Mise à jour des états lors de l'update
         updateSlideStates(swiper, false);
         hideAllCaptions(containerEl);
         showActiveCaption(containerEl);
@@ -197,6 +241,7 @@ function buildOptions(containerEl) {
         containerEl.__resizing = true;
         clearCaptionTimers(containerEl);
         containerEl.classList.remove('is-moving');
+        // Mise à jour des états lors du redimensionnement
         updateSlideStates(swiper, false);
         hideAllCaptions(containerEl);
         showActiveCaption(containerEl);
@@ -204,6 +249,7 @@ function buildOptions(containerEl) {
         containerEl.__resizeTO = setTimeout(() => {
           containerEl.__resizing = false;
           containerEl.classList.remove('is-moving');
+          // Mise à jour finale après le délai de redimensionnement
           updateSlideStates(swiper, false);
           hideAllCaptions(containerEl);
           showActiveCaption(containerEl);
@@ -291,4 +337,3 @@ export function destroySwiperSliders(root = document) {
     delete containerEl._swiper;
   });
 }
-
