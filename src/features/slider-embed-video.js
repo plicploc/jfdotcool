@@ -93,17 +93,32 @@ async function embedVideo(slideElement, videoId) {
             iframe.style.pointerEvents = 'none';
 
             // ** FIX iOS/Safari **: Ajoute l'attribut playsinline à l'iframe directement
-            // Pour certains navigateurs, l'ajouter aux playerVars n'est pas suffisant.
             iframe.setAttribute('playsinline', '1');
         }
         
-        // Assure que le son est coupé (crucial pour l'autoplay)
+        // 1. Assure que le son est coupé (crucial pour l'autoplay sur mobile)
         event.target.mute(); 
 
-        // Tente de démarrer la vidéo (nécessaire sur certains navigateurs mobiles)
+        // 2. Tente de démarrer la vidéo. 
+        // Sur iOS, parfois l'appel playVideo() fonctionne mieux s'il est un peu retardé,
+        // ou s'il est relancé dans un état "prêt".
         event.target.playVideo();
       },
       onStateChange: (event) => {
+        // -1: non démarré (unstarted), 0: terminée (ended), 1: en lecture (playing), 
+        // 2: en pause (paused), 3: en mémoire tampon (buffering), 5: mise en file d'attente (cued)
+        
+        // ** NOUVEAU FIX iOS/Safari **
+        // Si la vidéo est en file d'attente (cued) ou non démarrée, on la force à jouer APRES le mute
+        if (event.data === window.YT.PlayerState.CUED || event.data === -1) {
+             // Vérifie si la vidéo n'est pas déjà muette et la coupe à nouveau
+             if (!event.target.isMuted()) {
+                 event.target.mute();
+             }
+             // Tente de jouer à nouveau
+             event.target.playVideo();
+        }
+
         // Redémarre la vidéo si elle est terminée (pour la boucle)
         if (event.data === window.YT.PlayerState.ENDED) {
           event.target.playVideo();
@@ -229,6 +244,13 @@ function initBackgroundVideo(targetBlock) {
                     event.target.playVideo();
                 },
                 onStateChange: (event) => {
+                     // ** FIX iOS/Safari **: Force la lecture si elle est en file d'attente/non démarrée
+                    if (event.data === window.YT.PlayerState.CUED || event.data === -1) {
+                         if (!event.target.isMuted()) {
+                             event.target.mute();
+                         }
+                         event.target.playVideo();
+                    }
                     if (event.data === window.YT.PlayerState.ENDED) {
                         event.target.playVideo();
                     }
