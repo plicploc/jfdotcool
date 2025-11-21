@@ -1,6 +1,6 @@
 /**
  * file: features/slider-embed-video.js
- * Gère l'intégration (embed) des vidéos YouTube dans les diapositives Swiper.
+ * Gère l'intégration (embed) des vidéos YouTube dans les diapositives Swiper et en mode Background.
  * Utilise l'API YouTube IFrame Player pour un contrôle total.
  */
 
@@ -33,9 +33,9 @@ function loadYoutubeAPI() {
 }
 
 /**
- * 2. INSTANCIATION DU LECTEUR VIDÉO
- * Crée un lecteur vidéo YouTube avec des paramètres spécifiques pour
- * l'autoplay, la boucle et le masquage des contrôles/logos.
+ * 2. INSTANCIATION DU LECTEUR VIDÉO (UTILISÉ PAR SWIPER)
+ * Crée un lecteur vidéo YouTube avec des paramètres spécifiques, et le rend
+ * NON-INTERACTIF (pointer-events: none) pour masquer définitivement l'interface de survol.
  * @param {HTMLElement} slideElement L'élément de la diapositive où intégrer la vidéo.
  * @param {string} videoId L'identifiant de la vidéo YouTube (ex: fRY1JPd2VWI).
  */
@@ -60,29 +60,28 @@ async function embedVideo(slideElement, videoId) {
   slideElement.appendChild(videoContainer);
 
   const player = new window.YT.Player(videoContainerId, {
-    // Ajout de width et height à 100% pour essayer de forcer l'adaptabilité
     width: '100%', 
     height: '100%', 
     videoId: videoId,
     playerVars: {
-      // PARAMÈTRES REQUIS POUR LE "HACK" WEBFLOW/YOUTUBE:
-      autoplay: 1,      // Démarrage automatique
-      loop: 1,          // Lecture en boucle (nécessite 'playlist')
-      playlist: videoId,// Pour activer la lecture en boucle
-      controls: 0,      // Cache les contrôles du lecteur
-      iv_load_policy: 3,// Cache les annotations/cartes de la vidéo
-      // *** Paramètres anti-interface :
-      showinfo: 0,      // Cache le titre de la vidéo/logo
-      autohide: 1,      // Cache les contrôles pendant la lecture (obsolète mais peut aider)
-      modestbranding: 1,// Masque le logo YouTube (le moins possible)
-      rel: 0,           // Supprime les suggestions de vidéos à la fin
-      disablekb: 1,     // Désactive les contrôles clavier
-      fs: 0,            // Désactive le mode plein écran (optionnel)
-      mute: 1           // Couper le son (souvent nécessaire pour l'autoplay sur mobile)
+      // PARAMÈTRES ANTI-INTERFACE (contrôles, logo, suggestions, etc.)
+      autoplay: 1,      
+      loop: 1,          
+      playlist: videoId,
+      controls: 0,      
+      iv_load_policy: 3,
+      showinfo: 0,      
+      autohide: 1,      
+      modestbranding: 1,
+      rel: 0,           
+      disablekb: 1,     
+      fs: 0,            
+      mute: 1,          
+      // ** FIX iOS/Safari **: Force la lecture dans la fenêtre sans passer en plein écran
+      playsinline: 1    
     },
     events: {
       onReady: (event) => {
-        // ** LOGIQUE CLÉ POUR LE RESPONSIVE **
         const iframe = videoContainer.querySelector('iframe');
         if (iframe) {
             iframe.removeAttribute('width');
@@ -90,25 +89,18 @@ async function embedVideo(slideElement, videoId) {
             iframe.style.width = '100%';
             iframe.style.height = '100%';
             
-            // Fixe le problème de survol au début/fin de boucle
-            // L'ajout de 'pointer-events: none;' sur l'iframe devrait être neutralisé
-            // par notre overlay.
+            // FIX DÉFINITIF POUR L'INTERFACE (mode non-interactif)
+            iframe.style.pointerEvents = 'none';
 
-            // *** AJOUT DU BOUCLIER ANTI-SURVOL ***
-            // Crée un div transparent absolu au-dessus de l'iframe pour intercepter les événements souris
-            const overlay = document.createElement('div');
-            overlay.classList.add('youtube-iframe-overlay', 'w-full', 'h-full', 'absolute', 'top-0', 'left-0');
-            
-            // ** Augmentation du z-index ** pour être sûr de couvrir l'interface YT.
-            overlay.style.zIndex = '99'; // Très élevé pour être au-dessus des éléments YT internes
-            // Important : L'overlay doit intercepter les événements sans les consommer
-            // L'absence de style de fond le rend transparent, mais il intercepte les clics/survols.
-            
-            videoContainer.appendChild(overlay);
+            // ** FIX iOS/Safari **: Ajoute l'attribut playsinline à l'iframe directement
+            // Pour certains navigateurs, l'ajouter aux playerVars n'est pas suffisant.
+            iframe.setAttribute('playsinline', '1');
         }
         
-        // Le lecteur est prêt, nous pouvons nous assurer de l'autoplay et de la boucle
-        event.target.mute(); // Assure que c'est muet (important pour l'autoplay)
+        // Assure que le son est coupé (crucial pour l'autoplay)
+        event.target.mute(); 
+
+        // Tente de démarrer la vidéo (nécessaire sur certains navigateurs mobiles)
         event.target.playVideo();
       },
       onStateChange: (event) => {
@@ -124,6 +116,7 @@ async function embedVideo(slideElement, videoId) {
   PLAYERS[slideElement.id] = player;
 }
 
+
 /**
  * 3. DÉSINSTATIATION DU LECTEUR VIDÉO
  * Détruit le lecteur YouTube et nettoie le DOM.
@@ -134,6 +127,12 @@ function destroyVideo(slideElement) {
   const player = PLAYERS[slideId];
 
   if (player) {
+    // Rétablit pointer-events avant destruction (par sécurité)
+    const iframe = slideElement.querySelector('.youtube-embed-container iframe');
+    if (iframe) {
+        iframe.style.pointerEvents = 'auto'; 
+    }
+    
     player.destroy(); // Détruit l'instance YT Player
     delete PLAYERS[slideId]; // Supprime de notre stockage
   }
@@ -154,8 +153,6 @@ function destroyVideo(slideElement) {
 
 /**
  * 4. FONCTION UTILITAIRE POUR VÉRIFIER L'ALT TEXT
- * @param {HTMLElement} slideElement 
- * @returns {string|null} L'ID de la vidéo s'il est trouvé, sinon null.
  */
 function getVideoIdFromSlide(slideElement) {
   const img = 
@@ -174,7 +171,83 @@ function getVideoIdFromSlide(slideElement) {
   return null;
 }
 
+
 /**
- * 5. EXPORTATION DES FONCTIONS PUBLIQUES
+ * 5. NOUVELLE FONCTION: INITIALISATION D'UNE VIDÉO DE FOND STATIQUE
+ *
+ * Cette fonction permet d'utiliser la logique d'embed pour n'importe quel bloc.
+ * Le bloc cible doit avoir la classe 'video-background-block' et un 'data-videoid'.
+ * Ex: <div class="video-background-block" data-videoid="ID_YOUTUBE_ICI">...</div>
+ * @param {HTMLElement} targetBlock L'élément où injecter la vidéo.
  */
-export { embedVideo, destroyVideo, getVideoIdFromSlide };
+function initBackgroundVideo(targetBlock) {
+    const videoId = targetBlock.dataset.videoid;
+    if (!videoId) return;
+
+    // Assure que le conteneur peut positionner l'embed en absolu
+    targetBlock.style.position = targetBlock.style.position || 'relative';
+
+    // Crée un conteneur pour le lecteur
+    const videoContainerId = `BackgroundYT-${Date.now()}`;
+    const videoContainer = document.createElement('div');
+    videoContainer.id = videoContainerId;
+    
+    // Le conteneur doit être sous les autres éléments du bloc
+    videoContainer.style.zIndex = '-1'; 
+    videoContainer.classList.add('youtube-background-embed', 'w-full', 'h-full', 'absolute', 'top-0', 'left-0');
+    
+    targetBlock.prepend(videoContainer); // Ajout en début de bloc pour qu'il soit derrière
+
+    // Démarrage de l'embed
+    loadYoutubeAPI().then(() => {
+        new window.YT.Player(videoContainerId, {
+            width: '100%', 
+            height: '100%', 
+            videoId: videoId,
+            playerVars: {
+                // Background video parameters (mêmes que Swiper)
+                autoplay: 1, loop: 1, playlist: videoId, controls: 0, iv_load_policy: 3, 
+                showinfo: 0, autohide: 1, modestbranding: 1, rel: 0, disablekb: 1, fs: 0, mute: 1,
+                // ** FIX iOS/Safari **
+                playsinline: 1
+            },
+            events: {
+                onReady: (event) => {
+                    const iframe = videoContainer.querySelector('iframe');
+                    if (iframe) {
+                        iframe.removeAttribute('width');
+                        iframe.removeAttribute('height');
+                        iframe.style.width = '100%';
+                        iframe.style.height = '100%';
+                        // ** IMPORTANT **: Rendre la vidéo non-interactive
+                        iframe.style.pointerEvents = 'none'; 
+
+                        // ** FIX iOS/Safari **
+                        iframe.setAttribute('playsinline', '1');
+                    }
+                    event.target.mute();
+                    event.target.playVideo();
+                },
+                onStateChange: (event) => {
+                    if (event.data === window.YT.PlayerState.ENDED) {
+                        event.target.playVideo();
+                    }
+                }
+            }
+        });
+    });
+}
+
+/**
+ * 6. INITIALISATION DE TOUS LES BLOCS DE FOND STATIQUES
+ * Recherche les blocs marqués pour une vidéo de fond et les initialise.
+ */
+function initAllBackgroundVideos(root = document) {
+    root.querySelectorAll('.video-background-block').forEach(initBackgroundVideo);
+}
+
+
+/**
+ * 7. EXPORTATION DES FONCTIONS PUBLIQUES
+ */
+export { embedVideo, destroyVideo, getVideoIdFromSlide, initAllBackgroundVideos };
