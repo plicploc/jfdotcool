@@ -96,22 +96,25 @@ async function embedVideo(slideElement, videoId) {
             iframe.setAttribute('playsinline', '1');
         }
         
-        // 1. Assure que le son est coupé (crucial pour l'autoplay sur mobile)
+        // ** NOUVEAU FIX iOS/Safari **: Forcer la lecture avec un court délai
+        // Souvent, un setTimeout permet de contourner le blocage initial d'iOS.
         event.target.mute(); 
+        
+        // Met en place le mode boucle explicitement
+        event.target.setLoop(true); 
 
-        // 2. Tente de démarrer la vidéo. 
-        // Sur iOS, parfois l'appel playVideo() fonctionne mieux s'il est un peu retardé,
-        // ou s'il est relancé dans un état "prêt".
-        event.target.playVideo();
+        setTimeout(() => {
+            event.target.playVideo();
+        }, 500); // 500ms de délai pour laisser iOS se préparer
+
       },
       onStateChange: (event) => {
         // -1: non démarré (unstarted), 0: terminée (ended), 1: en lecture (playing), 
         // 2: en pause (paused), 3: en mémoire tampon (buffering), 5: mise en file d'attente (cued)
         
-        // ** NOUVEAU FIX iOS/Safari **
-        // Si la vidéo est en file d'attente (cued) ou non démarrée, on la force à jouer APRES le mute
+        // ** FIX iOS/Safari (bis) **
+        // Si la vidéo est en file d'attente (cued) ou non démarrée, on la force à jouer
         if (event.data === window.YT.PlayerState.CUED || event.data === -1) {
-             // Vérifie si la vidéo n'est pas déjà muette et la coupe à nouveau
              if (!event.target.isMuted()) {
                  event.target.mute();
              }
@@ -240,8 +243,13 @@ function initBackgroundVideo(targetBlock) {
                         // ** FIX iOS/Safari **
                         iframe.setAttribute('playsinline', '1');
                     }
+                    
                     event.target.mute();
-                    event.target.playVideo();
+                    event.target.setLoop(true);
+
+                    setTimeout(() => {
+                        event.target.playVideo();
+                    }, 500);
                 },
                 onStateChange: (event) => {
                      // ** FIX iOS/Safari **: Force la lecture si elle est en file d'attente/non démarrée
