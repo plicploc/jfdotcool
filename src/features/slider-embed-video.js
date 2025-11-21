@@ -89,9 +89,9 @@ async function embedVideo(slideElement, videoId) {
             iframe.style.width = '100%';
             iframe.style.height = '100%';
             
-            // ** NOUVEAU FIX BRANDING **: Décalage pour masquer le logo et l'interface de survol
+            // ** FIX BRANDING **: Décalage pour masquer le logo et l'interface de survol
             iframe.style.width = '300%';
-            iframe.style.height = '100%'; // Déjà 100%, mais à confirmer
+            iframe.style.height = '100%';
             iframe.style.marginLeft = '-100%';
             iframe.style.pointerEvents = 'none'; // FIX DÉFINITIF POUR L'INTERFACE (mode non-interactif)
 
@@ -99,21 +99,17 @@ async function embedVideo(slideElement, videoId) {
             iframe.setAttribute('playsinline', '1');
         }
         
-        // ** FIX iOS/Safari **: Forcer la lecture avec un court délai
+        // ** FIX iOS/Safari **: Démarrage forcé direct
         event.target.mute(); 
         event.target.setLoop(true); 
-
-        setTimeout(() => {
-            event.target.playVideo();
-        }, 500); // 500ms de délai pour laisser iOS se préparer
+        event.target.playVideo(); // Tentative de lecture immédiate
 
       },
       onStateChange: (event) => {
         // -1: non démarré (unstarted), 0: terminée (ended), 1: en lecture (playing), 
         // 2: en pause (paused), 3: en mémoire tampon (buffering), 5: mise en file d'attente (cued)
         
-        // ** FIX iOS/Safari (bis) **
-        // Si la vidéo est en file d'attente (cued) ou non démarrée, on la force à jouer
+        // ** FIX iOS/Safari (bis) **: Si le navigateur bloque mais est prêt, on retente
         if (event.data === window.YT.PlayerState.CUED || event.data === -1) {
              if (!event.target.isMuted()) {
                  event.target.mute();
@@ -238,7 +234,7 @@ function initBackgroundVideo(targetBlock) {
                         iframe.style.width = '100%';
                         iframe.style.height = '100%';
                         
-                        // ** NOUVEAU FIX BRANDING **: Décalage pour masquer le logo
+                        // ** FIX BRANDING **: Décalage pour masquer le logo
                         iframe.style.width = '300%';
                         iframe.style.height = '100%';
                         iframe.style.marginLeft = '-100%';
@@ -250,10 +246,7 @@ function initBackgroundVideo(targetBlock) {
                     
                     event.target.mute();
                     event.target.setLoop(true);
-
-                    setTimeout(() => {
-                        event.target.playVideo();
-                    }, 500);
+                    event.target.playVideo();
                 },
                 onStateChange: (event) => {
                      // ** FIX iOS/Safari **: Force la lecture si elle est en file d'attente/non démarrée
